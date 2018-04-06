@@ -5,24 +5,24 @@ import (
 	"github.com/maxim-kuderko/cloud_storage_proxy"
 	"github.com/maxim-kuderko/cloud_storage_proxy/buffer_drivers"
 	"errors"
-	"io"
 	"time"
 )
 
 func main() {
-	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, NewMemBuferInitializer, SQSCallback)
-	credentials := make(map[string]*map[string]interface{})
+	a := cloud_storage_proxy.TopicOptions{
+		MaxLen: 999999,
+		MaxSize: 1024,
+		Interval: time.Second * 10,
+	}
+	opt := map[string]*cloud_storage_proxy.TopicOptions{"test": &a}
+	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, buffer_drivers.NewMemBuffer, opt, SQSCallback)
 	for{
 		<- time.After(time.Millisecond * 100)
-		go c.Write("t", []byte(""))
-		go c.Write("t2", []byte(""))
+		go c.Write("test", []byte("AA"))
+		go c.Write("test", []byte("BB"))
 	}
 }
 
 func SQSCallback(m map[string]interface{}) (resp bool, err error) {
 	return true, errors.New("")
-}
-
-func NewMemBuferInitializer() io.ReadWriteCloser{
-	return &buffer_drivers.MemBuffer{}
 }

@@ -8,16 +8,16 @@ import (
 
 type Collection struct {
 	m map[string]*topic
-	storeFunc func(reader *io.Reader, options *TopicOptions) (res map[string]interface{})
-	bufferDriverInitializer func(options *TopicOptions) io.ReadWriteCloser
+	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{})
+	bufferDriverInitializer func() io.ReadWriteCloser
 	topicsOptions map[string]*TopicOptions
 	cb                     func(m map[string]interface{}) (bool, error)
 	s                      sync.RWMutex
 }
 
 func NewCollection(
-	storeFunc func(reader *io.Reader, options *TopicOptions) (res map[string]interface{}),
-	bufferDriverInitializer func(options *TopicOptions) io.ReadWriteCloser,
+	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}),
+	bufferDriverInitializer func() io.ReadWriteCloser,
 	topicsOptions map[string]*TopicOptions,
 	cb func(m map[string]interface{}) (bool, error)) *Collection {
 	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, bufferDriverInitializer: bufferDriverInitializer, cb: cb, topicsOptions:topicsOptions}
@@ -42,10 +42,11 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 func (c *Collection) safeInitTopic(topic string) (*topic, bool){
 	c.s.Lock()
 	defer c.s.Unlock()
-	v , ok := c.safeRead(topic)
+	v, ok := c.m[topic]
 	if ok {
 		return v, true
 	}
+	log.Println("New topic")
 	v = newTopic(
 		topic,
 		c.storeFunc,
@@ -53,6 +54,7 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool){
 		c.topicsOptions[topic],
 		c.cb,
 	)
+	c.m[topic] = v
 	return v, true
 }
 
