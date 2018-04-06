@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"log"
 )
 
 type MemBuffer struct {
@@ -24,8 +23,8 @@ func (mb *MemBuffer) Read(p []byte) (n int, err error) {
 	return mb.buff.Read(p)
 }
 func (mb *MemBuffer) Write(p []byte) (n int, err error) {
-	log.Println("Writing")
-	return mb.gz.Write(p)
+	mb.gz.Write(p)
+	return mb.gz.Write([]byte("\n"))
 }
 
 func (mb *MemBuffer) Close() error {

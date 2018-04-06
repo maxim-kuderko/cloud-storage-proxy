@@ -46,7 +46,6 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool){
 	if ok {
 		return v, true
 	}
-	log.Println("New topic")
 	v = newTopic(
 		topic,
 		c.storeFunc,

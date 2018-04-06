@@ -4,6 +4,7 @@ import (
 	"io"
 	"sync"
 	"time"
+	"log"
 )
 
 type topic struct{
@@ -41,14 +42,13 @@ func (c *topic) write(d []byte) bool {
 	c.s.Lock()
 	defer c.s.Unlock()
 	bWritten, err := c.buff.Write(d)
-	c.buff.Write([]byte("\n"))
 	if err != nil{
 		return false
 	}
 	c.currentLength++
 	c.currentSize += int64(bWritten)
-	if c.currentSize >= c.topicOptions.MaxSize || c.currentLength >= c.topicOptions.MaxLen{
-		go func() {c.send()}()
+	if (c.topicOptions.MaxSize != 1 && c.currentSize >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && c.currentLength >= c.topicOptions.MaxLen){
+		c.send(false)
 	}
 	return true
 }
@@ -60,15 +60,18 @@ func (c *topic) flush(){
 			if time.Now().Sub(c.lastFlush) < c.topicOptions.Interval{
 				return
 			}
-			c.send()
+			c.send(true)
 		}(c)
 	}
 
 }
 
-func (c *topic) swapBuffers() io.ReadWriteCloser{
-	c.s.Lock()
-	defer c.s.Unlock()
+func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
+	if getLock{
+		c.s.Lock()
+		defer c.s.Unlock()
+	}
+	log.Println(c.lastFlush, c.currentSize, c.currentLength)
 	c.buff.Close()
 	tmp := c.buff
 	c.initBuffer()
@@ -78,8 +81,8 @@ func (c *topic) swapBuffers() io.ReadWriteCloser{
 	return tmp
 }
 
-func (c *topic) send(){
-	dataToSend := c.swapBuffers()
+func (c *topic) send(getLock bool){
+	dataToSend := c.swapBuffers(getLock)
 	c.storeFunc(dataToSend, c.topicOptions)
 }
 
@@ -88,5 +91,5 @@ func (c *topic) initBuffer(){
 }
 
 func (c *topic) shutdown() {
-	c.send()
+	c.send(true)
 }
