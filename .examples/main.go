@@ -4,9 +4,7 @@ import (
 	"github.com/maxim-kuderko/cloud_storage_proxy/storage_drivers"
 	"github.com/maxim-kuderko/cloud_storage_proxy"
 	"github.com/maxim-kuderko/cloud_storage_proxy/buffer_drivers"
-	"errors"
 	"time"
-	"math/rand"
 	"io"
 	"compress/gzip"
 	"net/http"
@@ -32,33 +30,23 @@ func main() {
 
 	a := cloud_storage_proxy.TopicOptions{
 		MaxLen:   -1,
-		MaxSize:  1024 * 1024 * 1024 * 2,
+		MaxSize:  1024 * 1024 * 1024,
 		Interval: time.Second * 60,
 	}
-	opt := map[string]*cloud_storage_proxy.TopicOptions{"test": &a, "test2": &a}
+	opt := map[string]*cloud_storage_proxy.TopicOptions{
+		"test": &a, "test2": &a}
 	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, initMemBufferWithCompress, opt, SQSCallback)
 	for {
-		c.Write("test", []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+		c.Write("test", []byte("XVlBzgbaiCMRAjWwhTHctcuAxhxKQFDaFpLSjFbcXoEFfRsWxPLDnJObCsNVlgTeMaPEZQleQYhYzRyWJjPjzpfRFEgmotaFetHsbZRjxAwnwekrBEmfdzdcEkXBAkjQZLCtTMtTCoaNatyyiNKAReKJyiXJrscctNswYNsGRussVmaozFZBsbOJiFQGZsnwTKSmVoiGLOpbUOpEdKupdOMeRVjaRzLNTXYeUCWKsXbGyRAOmBTvKSJfjzaLbtZsyMGeuDtRzQMDQiYCOhgHOvgSeycJPJHYNufNjJhhjUVRuSqfgqVMkPYVkURUpiFvIZRgBmyArKCtzkjkZIvaBjMkXVbWGvbqzgexyALBsdjSGpngCwFkDifIBuufFMoWdiTskZoQJMqrTICTojIYxyeSxZyfroRODMbNDRZnPNRWCJPMHDtJmHAYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYBADDvoxIfsfgPyCKmxIubeYTNDtjAyRRDedMiyLprucjiOgjhYeVwBTCMLfrDGXqwpzwVGqMZcLVCxaSJlDSYEofkkEYeqkKHqgBpnbPbgHMLUIDjUMmpBHCSjMJjxzuaiIsNBakqSwQpOQgNczgaczAInLqLIbAatLYHdaopovFOkqIexsFzXzrlcztxcdJJFuyZHRCovgpVvlGsXalGqARmneBZBFelhXkzzfNaVtAyyqWzKqQFbucqNJYWRncGKKLdTkNyoCSfkFohsVVxSAZWEXejhAquXdaaaZlRHoNXvpayoSsqcnCTuGZamCToZvPynaEphIdXaKUaqmBdtZtcOfFSPqKXSLEfZAPaJzldaUEdhITGHvBrQPqWARPXPtPVGNpdGERwVhGCMdfLitTqwLUecgOczXTbRMGxqPexOUAbUdQrIPjyQyQFStFubVVdHtAknjEQxCqkDIfTGXeJtuncbfqQUsXTOdPORvAUkAwwwTndUJHiQecbxzvqzlPWyqOsU"))
 	}
 
 }
 
 func SQSCallback(m map[string]interface{}) (resp bool, err error) {
 	log.Println("Sent")
-	return true, errors.New("")
+	return true, nil
 }
 
 func initMemBufferWithCompress() io.ReadWriteCloser {
 	return buffer_drivers.NewMemBuffer(gzip.BestCompression)
 }
-
-func generateRandomStr(size int) []byte {
-	b := make([]byte, size)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return b
-
-}
-
-var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
