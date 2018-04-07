@@ -16,12 +16,16 @@ func NewMemBuffer(compression int) io.ReadWriteCloser {
 	g, _ := gzip.NewWriterLevel(b, compression)
 	return &MemBuffer{
 		buff: b,
-		gz:  g,
+		gz:   g,
 	}
 }
 
 func (mb *MemBuffer) Read(p []byte) (n int, err error) {
-	return mb.buff.Read(p)
+	d, err := mb.buff.Read(p)
+	if err != nil{
+		mb.buff = nil
+	}
+	return d, err
 }
 func (mb *MemBuffer) Write(p []byte) (n int, err error) {
 	i, e := mb.gz.Write(p)

@@ -4,7 +4,6 @@ import (
 	"io"
 	"sync"
 	"time"
-	"log"
 )
 
 type topic struct{
@@ -71,7 +70,6 @@ func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
 		c.s.Lock()
 		defer c.s.Unlock()
 	}
-	log.Println(c.lastFlush, c.currentSize, c.currentLength)
 	c.buff.Close()
 	tmp := c.buff
 	c.initBuffer()
@@ -83,8 +81,12 @@ func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
 
 func (c *topic) send(getLock bool){
 	dataToSend := c.swapBuffers(getLock)
-	d := c.storeFunc(dataToSend, c.topicOptions)
-	c.cb(d)
+	go func() {
+		d := c.storeFunc(dataToSend, c.topicOptions)
+		c.cb(d)
+		dataToSend = nil
+	}()
+
 }
 
 func (c *topic) initBuffer(){
