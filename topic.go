@@ -83,7 +83,8 @@ func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
 
 func (c *topic) send(getLock bool){
 	dataToSend := c.swapBuffers(getLock)
-	c.storeFunc(dataToSend, c.topicOptions)
+	d := c.storeFunc(dataToSend, c.topicOptions)
+	c.cb(d)
 }
 
 func (c *topic) initBuffer(){
