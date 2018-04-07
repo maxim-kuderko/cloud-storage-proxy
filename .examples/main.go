@@ -8,6 +8,8 @@ import (
 	"time"
 	"log"
 	"math/rand"
+	"io"
+	"compress/gzip"
 )
 
 func main() {
@@ -17,16 +19,20 @@ func main() {
 		Interval: time.Second * 60,
 	}
 	opt := map[string]*cloud_storage_proxy.TopicOptions{"test": &a, "test2": &a}
-	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, buffer_drivers.NewMemBuffer, opt, SQSCallback)
+	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, initMemBufferWithCompress, opt, SQSCallback)
 	for{
 		<- time.After(time.Nanosecond * 10 )
-		go c.Write("test", generateRandomStr(1024))
+		go c.Write("test", []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 	}
 }
 
 func SQSCallback(m map[string]interface{}) (resp bool, err error) {
 	log.Println("SQS callback , ", m)
 	return true, errors.New("")
+}
+
+func initMemBufferWithCompress() io.ReadWriteCloser{
+	return buffer_drivers.NewMemBuffer(gzip.BestCompression)
 }
 
 

@@ -11,11 +11,12 @@ type MemBuffer struct {
 	gz   *gzip.Writer
 }
 
-func NewMemBuffer() io.ReadWriteCloser {
+func NewMemBuffer(compression int) io.ReadWriteCloser {
 	b := &bytes.Buffer{}
+	g, _ := gzip.NewWriterLevel(b, compression)
 	return &MemBuffer{
 		buff: b,
-		gz:   gzip.NewWriter(b),
+		gz:  g,
 	}
 }
 
@@ -23,8 +24,9 @@ func (mb *MemBuffer) Read(p []byte) (n int, err error) {
 	return mb.buff.Read(p)
 }
 func (mb *MemBuffer) Write(p []byte) (n int, err error) {
-	mb.gz.Write(p)
-	return mb.gz.Write([]byte("\n"))
+	i, e := mb.gz.Write(p)
+	i2, _ := mb.gz.Write([]byte("\n"))
+	return i + i2, e
 }
 
 func (mb *MemBuffer) Close() error {
