@@ -47,7 +47,7 @@ func (c *topic) write(d []byte) bool {
 	}
 	c.currentLength++
 	c.currentSize += int64(bWritten)
-	if (c.topicOptions.MaxSize != 1 && c.currentSize >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && c.currentLength >= c.topicOptions.MaxLen){
+	if (c.topicOptions.MaxSize != -1 && c.currentSize >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && c.currentLength >= c.topicOptions.MaxLen){
 		c.send(false)
 	}
 	return true
@@ -82,16 +82,15 @@ func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
 
 func (c *topic) send(getLock bool){
 	dataToSend := c.swapBuffers(getLock)
-	go func() {
-		d, err := c.storeFunc(dataToSend, c.topicOptions)
+	go func(d io.ReadWriteCloser) {
+		res, err := c.storeFunc(d, c.topicOptions)
 		if err != nil{
 			log.Println(err)
 			return
 		}
-		c.cb(d)
-		dataToSend = nil
-	}()
-
+		c.cb(res)
+		d = nil
+	}(dataToSend)
 }
 
 func (c *topic) initBuffer(){

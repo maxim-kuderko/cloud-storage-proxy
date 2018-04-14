@@ -18,6 +18,10 @@ import (
 
 
 func S3Store(reader io.ReadWriteCloser, opt *cloud_storage_proxy.TopicOptions) (map[string]interface{}, error){
+	defer func() {
+		reader = nil
+	}()
+	log.Println("Uploading ", opt.Name)
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region:      aws.String(opt.StoreCredentials["aws-region"]),
 		Credentials: credentials.NewStaticCredentials(opt.StoreCredentials["aws-key"], opt.StoreCredentials["aws-secret"], ""),

@@ -9,11 +9,13 @@ import (
 	"compress/gzip"
 	_ "net/http/pprof"
 	"log"
+	"net/http"
+	"net/http/pprof"
 )
 
 func main() {
 
-	/*go func() {
+	go func() {
 		r := http.NewServeMux()
 
 		// Register pprof handlers
@@ -24,7 +26,7 @@ func main() {
 		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 		http.ListenAndServe(":8080", r)
-	}()*/
+	}()
 
 	a := cloud_storage_proxy.TopicOptions{
 		Name:             "test",
@@ -47,5 +49,5 @@ func SQSCallback(m map[string]interface{}) (resp bool, err error) {
 }
 
 func initMemBufferWithCompress() io.ReadWriteCloser {
-	return buffer_drivers.NewMemBuffer(gzip.BestCompression)
+	return buffer_drivers.NewMemBuffer(gzip.NoCompression)
 }

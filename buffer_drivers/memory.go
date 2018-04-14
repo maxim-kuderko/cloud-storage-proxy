@@ -28,9 +28,11 @@ func (mb *MemBuffer) Read(p []byte) (n int, err error) {
 	return d, err
 }
 func (mb *MemBuffer) Write(p []byte) (n int, err error) {
-	i, e := mb.gz.Write(p)
-	i2, _ := mb.gz.Write([]byte("\n"))
-	return i + i2, e
+	sl := mb.buff.Len()
+	_, e := mb.gz.Write(p)
+	mb.gz.Write([]byte("\n"))
+	written := mb.buff.Len() -sl
+	return written, e
 }
 
 func (mb *MemBuffer) Close() error {
