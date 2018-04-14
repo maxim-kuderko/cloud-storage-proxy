@@ -7,15 +7,13 @@ import (
 	"time"
 	"io"
 	"compress/gzip"
-	"net/http"
 	_ "net/http/pprof"
-	"net/http/pprof"
 	"log"
 )
 
 func main() {
 
-	go func() {
+	/*go func() {
 		r := http.NewServeMux()
 
 		// Register pprof handlers
@@ -26,15 +24,16 @@ func main() {
 		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 		http.ListenAndServe(":8080", r)
-	}()
+	}()*/
 
 	a := cloud_storage_proxy.TopicOptions{
-		MaxLen:   -1,
-		MaxSize:  1024 * 1024 * 1024,
-		Interval: time.Second * 60,
+		Name:             "test",
+		MaxLen:           -1,
+		MaxSize:          1024 * 1024 * 1024,
+		Interval:         time.Second * 60,
+		StoreCredentials: map[string]string{},
 	}
-	opt := map[string]*cloud_storage_proxy.TopicOptions{
-		"test": &a, "test2": &a}
+	opt := map[string]*cloud_storage_proxy.TopicOptions{"test": &a}
 	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, initMemBufferWithCompress, opt, SQSCallback)
 	for {
 		c.Write("test", []byte("XVlBzgbaiCMRAjWwhTHctcuAxhxKQFDaFpLSjFbcXoEFfRsWxPLDnJObCsNVlgTeMaPEZQleQYhYzRyWJjPjzpfRFEgmotaFetHsbZRjxAwnwekrBEmfdzdcEkXBAkjQZLCtTMtTCoaNatyyiNKAReKJyiXJrscctNswYNsGRussVmaozFZBsbOJiFQGZsnwTKSmVoiGLOpbUOpEdKupdOMeRVjaRzLNTXYeUCWKsXbGyRAOmBTvKSJfjzaLbtZsyMGeuDtRzQMDQiYCOhgHOvgSeycJPJHYNufNjJhhjUVRuSqfgqVMkPYVkURUpiFvIZRgBmyArKCtzkjkZIvaBjMkXVbWGvbqzgexyALBsdjSGpngCwFkDifIBuufFMoWdiTskZoQJMqrTICTojIYxyeSxZyfroRODMbNDRZnPNRWCJPMHDtJmHAYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYBADDvoxIfsfgPyCKmxIubeYTNDtjAyRRDedMiyLprucjiOgjhYeVwBTCMLfrDGXqwpzwVGqMZcLVCxaSJlDSYEofkkEYeqkKHqgBpnbPbgHMLUIDjUMmpBHCSjMJjxzuaiIsNBakqSwQpOQgNczgaczAInLqLIbAatLYHdaopovFOkqIexsFzXzrlcztxcdJJFuyZHRCovgpVvlGsXalGqARmneBZBFelhXkzzfNaVtAyyqWzKqQFbucqNJYWRncGKKLdTkNyoCSfkFohsVVxSAZWEXejhAquXdaaaZlRHoNXvpayoSsqcnCTuGZamCToZvPynaEphIdXaKUaqmBdtZtcOfFSPqKXSLEfZAPaJzldaUEdhITGHvBrQPqWARPXPtPVGNpdGERwVhGCMdfLitTqwLUecgOczXTbRMGxqPexOUAbUdQrIPjyQyQFStFubVVdHtAknjEQxCqkDIfTGXeJtuncbfqQUsXTOdPORvAUkAwwwTndUJHiQecbxzvqzlPWyqOsU"))

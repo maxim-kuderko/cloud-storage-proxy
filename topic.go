@@ -4,11 +4,12 @@ import (
 	"io"
 	"sync"
 	"time"
+	"log"
 )
 
 type topic struct{
 	name string
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{})
+	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
 	topicOptions *TopicOptions
 	cb                     func(m map[string]interface{}) (bool, error)
@@ -21,7 +22,7 @@ type topic struct{
 
 func newTopic(
 	name string,
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}),
+	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
 	bufferDriverInitializer func() io.ReadWriteCloser,
 	topicOptions *TopicOptions,
 	cb func(m map[string]interface{}) (bool, error)) *topic{
@@ -82,7 +83,11 @@ func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
 func (c *topic) send(getLock bool){
 	dataToSend := c.swapBuffers(getLock)
 	go func() {
-		d := c.storeFunc(dataToSend, c.topicOptions)
+		d, err := c.storeFunc(dataToSend, c.topicOptions)
+		if err != nil{
+			log.Println(err)
+			return
+		}
 		c.cb(d)
 		dataToSend = nil
 	}()

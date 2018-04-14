@@ -8,7 +8,7 @@ import (
 
 type Collection struct {
 	m map[string]*topic
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{})
+	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
 	topicsOptions map[string]*TopicOptions
 	cb                     func(m map[string]interface{}) (bool, error)
@@ -16,7 +16,7 @@ type Collection struct {
 }
 
 func NewCollection(
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}),
+	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
 	bufferDriverInitializer func() io.ReadWriteCloser,
 	topicsOptions map[string]*TopicOptions,
 	cb func(m map[string]interface{}) (bool, error)) *Collection {
