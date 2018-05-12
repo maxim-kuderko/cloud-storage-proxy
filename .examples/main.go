@@ -12,13 +12,13 @@ import (
 func main() {
 
 	a := cloud_storage_proxy.TopicOptions{
-		Name:             "test",
-		MaxLen:           -1,
-		MaxSize:          1024 * 1024 * 1024,
-		Interval:         time.Second * 60,
+		Name:     "test",
+		MaxLen:   -1,
+		MaxSize:  1024 * 1024 * 1024,
+		Interval: time.Second * 60,
 		StoreCredentials: map[string]string{
 			"aws-region": "",
-			"aws-key": "",
+			"aws-key":    "",
 			"aws-secret": "",
 		},
 		Callback: SQSCallback,

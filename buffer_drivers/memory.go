@@ -22,7 +22,7 @@ func NewMemBuffer(compression int) io.ReadWriteCloser {
 
 func (mb *MemBuffer) Read(p []byte) (n int, err error) {
 	d, err := mb.buff.Read(p)
-	if err != nil{
+	if err != nil {
 		mb.buff = nil
 	}
 	return d, err
@@ -31,7 +31,7 @@ func (mb *MemBuffer) Write(p []byte) (n int, err error) {
 	sl := mb.buff.Len()
 	_, e := mb.gz.Write(p)
 	mb.gz.Write([]byte("\n"))
-	written := mb.buff.Len() -sl
+	written := mb.buff.Len() - sl
 	return written, e
 }
 

@@ -7,25 +7,25 @@ import (
 )
 
 type Collection struct {
-	m map[string]*topic
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
+	m                       map[string]*topic
+	storeFunc               func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
-	topicsOptions map[string]*TopicOptions
-	s                      sync.RWMutex
+	topicsOptions           map[string]*TopicOptions
+	s                       sync.RWMutex
 }
 
 func NewCollection(
 	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
 	bufferDriverInitializer func() io.ReadWriteCloser,
 	topicsOptions map[string]*TopicOptions) *Collection {
-	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, bufferDriverInitializer: bufferDriverInitializer, topicsOptions:topicsOptions}
+	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, bufferDriverInitializer: bufferDriverInitializer, topicsOptions: topicsOptions}
 	return &c
 }
 
 func (c *Collection) Write(topic string, d []byte) bool {
 	t, ok := c.safeRead(topic)
 	if !ok {
-		t, ok =c.safeInitTopic(topic)
+		t, ok = c.safeInitTopic(topic)
 	}
 	return t.write(d)
 }
@@ -34,10 +34,10 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	c.s.RLock()
 	defer c.s.RUnlock()
 	t, ok = c.m[topic]
-	return  t, ok
+	return t, ok
 }
 
-func (c *Collection) safeInitTopic(topic string) (*topic, bool){
+func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
 	c.s.Lock()
 	defer c.s.Unlock()
 	v, ok := c.m[topic]
@@ -53,13 +53,11 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool){
 	return v, true
 }
 
-
-
 func (c *Collection) Shutdown() {
 	c.s.Lock()
 	defer c.s.Unlock()
 	wg := sync.WaitGroup{}
-	for t, topic := range c.m{
+	for t, topic := range c.m {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
 			log.Println("Shutting down: ", t)
