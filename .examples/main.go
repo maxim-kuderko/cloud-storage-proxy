@@ -6,8 +6,6 @@ import (
 	"github.com/maxim-kuderko/cloud_storage_proxy/buffer_drivers"
 	"time"
 	"io"
-	"compress/gzip"
-	_ "net/http/pprof"
 	"log"
 )
 
@@ -39,5 +37,5 @@ func SQSCallback(m map[string]interface{}) (resp bool, err error) {
 }
 
 func initMemBufferWithCompress() io.ReadWriteCloser {
-	return buffer_drivers.NewMemBuffer(gzip.NoCompression)
+	return buffer_drivers.NewMemBuffer(0)
 }
