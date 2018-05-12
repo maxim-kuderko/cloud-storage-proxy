@@ -9,4 +9,5 @@ type TopicOptions struct{
 	Interval time.Duration
 	StoreCredentials map[string]string
 	Format string
+	Callback func(m map[string]interface{}) (resp bool, err error)
 }

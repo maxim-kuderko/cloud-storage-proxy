@@ -11,16 +11,14 @@ type Collection struct {
 	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
 	topicsOptions map[string]*TopicOptions
-	cb                     func(m map[string]interface{}) (bool, error)
 	s                      sync.RWMutex
 }
 
 func NewCollection(
 	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
 	bufferDriverInitializer func() io.ReadWriteCloser,
-	topicsOptions map[string]*TopicOptions,
-	cb func(m map[string]interface{}) (bool, error)) *Collection {
-	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, bufferDriverInitializer: bufferDriverInitializer, cb: cb, topicsOptions:topicsOptions}
+	topicsOptions map[string]*TopicOptions) *Collection {
+	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, bufferDriverInitializer: bufferDriverInitializer, topicsOptions:topicsOptions}
 	return &c
 }
 
@@ -50,9 +48,7 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool){
 		topic,
 		c.storeFunc,
 		c.bufferDriverInitializer,
-		c.topicsOptions[topic],
-		c.cb,
-	)
+		c.topicsOptions[topic])
 	c.m[topic] = v
 	return v, true
 }

@@ -7,57 +7,54 @@ import (
 	"log"
 )
 
-type topic struct{
-	name string
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
+type topic struct {
+	name                    string
+	storeFunc               func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
-	topicOptions *TopicOptions
-	cb                     func(m map[string]interface{}) (bool, error)
-	buff io.ReadWriteCloser
-	currentSize int64
-	currentLength int64
-	lastFlush time.Time
-	s                      sync.Mutex
+	topicOptions            *TopicOptions
+	buff                    io.ReadWriteCloser
+	currentSize             int64
+	currentLength           int64
+	lastFlush               time.Time
+	s                       sync.Mutex
 }
 
 func newTopic(
 	name string,
 	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
 	bufferDriverInitializer func() io.ReadWriteCloser,
-	topicOptions *TopicOptions,
-	cb func(m map[string]interface{}) (bool, error)) *topic{
-		t := topic{
-			name: name,
-			storeFunc:storeFunc,
-			bufferDriverInitializer:bufferDriverInitializer,
-			topicOptions: topicOptions,
-			cb: cb,
-		}
-		t.initBuffer()
-		go func() {t.flush()}()
-		return &t
+	topicOptions *TopicOptions) *topic {
+	t := topic{
+		name:                    name,
+		storeFunc:               storeFunc,
+		bufferDriverInitializer: bufferDriverInitializer,
+		topicOptions:            topicOptions,
+	}
+	t.initBuffer()
+	go func() { t.flush() }()
+	return &t
 }
 
 func (c *topic) write(d []byte) bool {
 	c.s.Lock()
 	defer c.s.Unlock()
 	bWritten, err := c.buff.Write(d)
-	if err != nil{
+	if err != nil {
 		return false
 	}
 	c.currentLength++
 	c.currentSize += int64(bWritten)
-	if (c.topicOptions.MaxSize != -1 && c.currentSize >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && c.currentLength >= c.topicOptions.MaxLen){
+	if (c.topicOptions.MaxSize != -1 && c.currentSize >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && c.currentLength >= c.topicOptions.MaxLen) {
 		c.send(false)
 	}
 	return true
 }
 
-func (c *topic) flush(){
-	for{
-		<- time.After(c.topicOptions.Interval)
-		go func(c *topic){
-			if time.Now().Sub(c.lastFlush) < c.topicOptions.Interval{
+func (c *topic) flush() {
+	for {
+		<-time.After(c.topicOptions.Interval)
+		go func(c *topic) {
+			if time.Now().Sub(c.lastFlush) < c.topicOptions.Interval {
 				return
 			}
 			c.send(true)
@@ -66,8 +63,8 @@ func (c *topic) flush(){
 
 }
 
-func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
-	if getLock{
+func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser {
+	if getLock {
 		c.s.Lock()
 		defer c.s.Unlock()
 	}
@@ -80,20 +77,20 @@ func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser{
 	return tmp
 }
 
-func (c *topic) send(getLock bool){
+func (c *topic) send(getLock bool) {
 	dataToSend := c.swapBuffers(getLock)
 	go func(d io.ReadWriteCloser) {
 		res, err := c.storeFunc(d, c.topicOptions)
-		if err != nil{
+		if err != nil {
 			log.Println(err)
 			return
 		}
-		c.cb(res)
+		c.topicOptions.Callback(res)
 		d = nil
 	}(dataToSend)
 }
 
-func (c *topic) initBuffer(){
+func (c *topic) initBuffer() {
 	c.buff = c.bufferDriverInitializer()
 }
 

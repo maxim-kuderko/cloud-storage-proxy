@@ -9,34 +9,24 @@ import (
 	"compress/gzip"
 	_ "net/http/pprof"
 	"log"
-	"net/http"
-	"net/http/pprof"
 )
 
 func main() {
-
-	go func() {
-		r := http.NewServeMux()
-
-		// Register pprof handlers
-		r.HandleFunc("/debug/pprof/", pprof.Index)
-		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
-
-		http.ListenAndServe(":8080", r)
-	}()
 
 	a := cloud_storage_proxy.TopicOptions{
 		Name:             "test",
 		MaxLen:           -1,
 		MaxSize:          1024 * 1024 * 1024,
 		Interval:         time.Second * 60,
-		StoreCredentials: map[string]string{},
+		StoreCredentials: map[string]string{
+			"aws-region": "",
+			"aws-key": "",
+			"aws-secret": "",
+		},
+		Callback: SQSCallback,
 	}
 	opt := map[string]*cloud_storage_proxy.TopicOptions{"test": &a}
-	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, initMemBufferWithCompress, opt, SQSCallback)
+	c := cloud_storage_proxy.NewCollection(storage_drivers.S3Store, initMemBufferWithCompress, opt)
 	for {
 		c.Write("test", []byte("XVlBzgbaiCMRAjWwhTHctcuAxhxKQFDaFpLSjFbcXoEFfRsWxPLDnJObCsNVlgTeMaPEZQleQYhYzRyWJjPjzpfRFEgmotaFetHsbZRjxAwnwekrBEmfdzdcEkXBAkjQZLCtTMtTCoaNatyyiNKAReKJyiXJrscctNswYNsGRussVmaozFZBsbOJiFQGZsnwTKSmVoiGLOpbUOpEdKupdOMeRVjaRzLNTXYeUCWKsXbGyRAOmBTvKSJfjzaLbtZsyMGeuDtRzQMDQiYCOhgHOvgSeycJPJHYNufNjJhhjUVRuSqfgqVMkPYVkURUpiFvIZRgBmyArKCtzkjkZIvaBjMkXVbWGvbqzgexyALBsdjSGpngCwFkDifIBuufFMoWdiTskZoQJMqrTICTojIYxyeSxZyfroRODMbNDRZnPNRWCJPMHDtJmHAYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYBADDvoxIfsfgPyCKmxIubeYTNDtjAyRRDedMiyLprucjiOgjhYeVwBTCMLfrDGXqwpzwVGqMZcLVCxaSJlDSYEofkkEYeqkKHqgBpnbPbgHMLUIDjUMmpBHCSjMJjxzuaiIsNBakqSwQpOQgNczgaczAInLqLIbAatLYHdaopovFOkqIexsFzXzrlcztxcdJJFuyZHRCovgpVvlGsXalGqARmneBZBFelhXkzzfNaVtAyyqWzKqQFbucqNJYWRncGKKLdTkNyoCSfkFohsVVxSAZWEXejhAquXdaaaZlRHoNXvpayoSsqcnCTuGZamCToZvPynaEphIdXaKUaqmBdtZtcOfFSPqKXSLEfZAPaJzldaUEdhITGHvBrQPqWARPXPtPVGNpdGERwVhGCMdfLitTqwLUecgOczXTbRMGxqPexOUAbUdQrIPjyQyQFStFubVVdHtAknjEQxCqkDIfTGXeJtuncbfqQUsXTOdPORvAUkAwwwTndUJHiQecbxzvqzlPWyqOsU"))
 	}
