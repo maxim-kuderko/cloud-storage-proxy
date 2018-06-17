@@ -1,8 +1,7 @@
-package storage_drivers
+package cloud_storage_proxy
 
 import (
 	"io"
-	"github.com/maxim-kuderko/cloud_storage_proxy"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -14,7 +13,7 @@ import (
 	"fmt"
 )
 
-func S3Store(reader io.ReadWriteCloser, opt *cloud_storage_proxy.TopicOptions) (map[string]interface{}, error) {
+func S3Store(reader io.ReadWriteCloser, opt *TopicOptions) (map[string]interface{}, error) {
 	defer func() {
 		reader = nil
 	}()

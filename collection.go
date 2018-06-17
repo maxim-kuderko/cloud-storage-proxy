@@ -4,6 +4,8 @@ import (
 	"io"
 	"sync"
 	"log"
+	"sync/atomic"
+	"time"
 )
 
 type Collection struct {
@@ -11,23 +13,34 @@ type Collection struct {
 	storeFunc               func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
 	topicsOptions           map[string]*TopicOptions
+	currentDatacount        *int64
+	globalBufferMaxSize     int64
 	s                       sync.RWMutex
 }
 
 func NewCollection(
 	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
 	bufferDriverInitializer func() io.ReadWriteCloser,
+	globalBufferMaxSize int64,
 	topicsOptions map[string]*TopicOptions) *Collection {
-	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, bufferDriverInitializer: bufferDriverInitializer, topicsOptions: topicsOptions}
+		s := int64(0)
+	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, globalBufferMaxSize: globalBufferMaxSize, currentDatacount: &s,
+	bufferDriverInitializer: bufferDriverInitializer, topicsOptions: topicsOptions}
+	go c.flush()
 	return &c
 }
 
-func (c *Collection) Write(topic string, d []byte) bool {
+func (c *Collection) Write(topic string, d []byte) (int, error) {
 	t, ok := c.safeRead(topic)
 	if !ok {
 		t, ok = c.safeInitTopic(topic)
 	}
-	return t.write(d)
+	written, err := t.write(d)
+	if err != nil {
+		return 0, err
+	}
+	atomic.AddInt64(c.currentDatacount, int64(written))
+	return written, err
 }
 
 func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
@@ -35,6 +48,22 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	defer c.s.RUnlock()
 	t, ok = c.m[topic]
 	return t, ok
+}
+
+func (c *Collection) blockByMaxSize(){
+	if atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize{
+		c.s.Lock()
+		defer c.s.Unlock()
+		for atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize{
+			time.Sleep(time.Millisecond)
+		}
+	}
+}
+
+func (c *Collection) flush(){
+	for range time.NewTicker(time.Millisecond).C{
+		c.blockByMaxSize()
+	}
 }
 
 func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
@@ -46,6 +75,7 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
 	}
 	v = newTopic(
 		topic,
+		c.currentDatacount,
 		c.storeFunc,
 		c.bufferDriverInitializer,
 		c.topicsOptions[topic])

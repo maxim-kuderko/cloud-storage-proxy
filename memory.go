@@ -1,4 +1,4 @@
-package buffer_drivers
+package cloud_storage_proxy
 
 import (
 	"bytes"
