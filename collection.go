@@ -1,13 +1,15 @@
-package cloud_storage_proxy
+package storage_buffer
 
 import (
 	"io"
 	"sync"
 	"sync/atomic"
 	"time"
+	"log"
 )
 
 type Collection struct {
+	topicsOptionsFetcher    func(topicName string) *TopicOptions
 	m                       map[string]*topic
 	storeFunc               func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
@@ -17,14 +19,14 @@ type Collection struct {
 	s                       sync.RWMutex
 }
 
-func NewCollection(
-	storeFunc func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error),
-	bufferDriverInitializer func() io.ReadWriteCloser,
-	globalBufferMaxSize int64,
-	topicsOptions map[string]*TopicOptions) *Collection {
+func NewCollection(globalBufferMaxSize int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
 	s := int64(0)
-	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, globalBufferMaxSize: globalBufferMaxSize, currentDatacount: &s,
-		bufferDriverInitializer: bufferDriverInitializer, topicsOptions: topicsOptions}
+	c := Collection{m:
+	map[string]*topic{},
+		globalBufferMaxSize: globalBufferMaxSize,
+		currentDatacount: &s,
+		topicsOptionsFetcher: topicsOptionsFetcher,
+	}
 	go c.flush()
 	return &c
 }
@@ -51,11 +53,15 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 
 func (c *Collection) blockByMaxSize() {
 	if atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize {
+		log.Println(atomic.LoadInt64(c.currentDatacount))
 		c.s.Lock()
 		defer c.s.Unlock()
+		log.Println("locked")
 		for atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize {
-			time.Sleep(time.Millisecond)
+			time.Sleep(time.Second)
+			log.Println("still locked")
 		}
+		log.Println("released")
 	}
 }
 
@@ -73,11 +79,8 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
 		return v, true
 	}
 	v = newTopic(
-		topic,
 		c.currentDatacount,
-		c.storeFunc,
-		c.bufferDriverInitializer,
-		c.topicsOptions[topic])
+		c.topicsOptionsFetcher(topic))
 	c.m[topic] = v
 	return v, true
 }
@@ -86,7 +89,7 @@ func (c *Collection) Shutdown() {
 	c.s.Lock()
 	defer c.s.Unlock()
 	wg := sync.WaitGroup{}
-	for t, topic := range c.m {
+	for _, topic := range c.m {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
 			topic.shutdown()

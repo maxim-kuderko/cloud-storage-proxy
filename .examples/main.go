@@ -1,7 +1,9 @@
 package main
 
 import (
-	csp "github.com/maxim-kuderko/cloud_storage_proxy"
+	csp "github.com/maxim-kuderko/storage-buffer"
+	bf "github.com/maxim-kuderko/storage-buffer/buffers"
+	strg "github.com/maxim-kuderko/storage-buffer/storage"
 	"time"
 	"io"
 	"log"
@@ -13,28 +15,32 @@ func main() {
 		Name:     "test",
 		MaxLen:   -1,
 		MaxSize:  1024 * 1024 * 50,
-		Interval: time.Second * 60,
+		Interval: time.Second * 3,
 		StoreCredentials: map[string]string{
 			"aws-region": "",
 			"aws-key":    "",
 			"aws-secret": "",
 			"bucket":     "",
 		},
+		BufferDriver: initMemBufferWithCompress,
+		StorageDriver: strg.NewS3Loader().S3Store
 		Callback: SQSCallback,
 	}
-	opt := map[string]*csp.TopicOptions{"test": &a}
-	c := csp.NewCollection(csp.S3Store, initMemBufferWithCompress,1024*1024*1024, opt)
+	cfg := cfg{
+		m:map[string]*csp.TopicOptions{"test": &a},
+	}
+	c := csp.NewCollection(1024*1024*1024, cfg.get)
 	for {
 		c.Write("test", []byte("XVlBzgbaiCMRAjWwhTHctcuAxhxKQFDaFpLSjFbcXoEFfRsWxPLDnJObCsNVlgTeMaPEZQleQYhYzRyWJjPjzpfRFEgmotaFetHsbZRjxAwnwekrBEmfdzdcEkXBAkjQZLCtTMtTCoaNatyyiNKAReKJyiXJrscctNswYNsGRussVmaozFZBsbOJiFQGZsnwTKSmVoiGLOpbUOpEdKupdOMeRVjaRzLNTXYeUCWKsXbGyRAOmBTvKSJfjzaLbtZsyMGeuDtRzQMDQiYCOhgHOvgSeycJPJHYNufNjJhhjUVRuSqfgqVMkPYVkURUpiFvIZRgBmyArKCtzkjkZIvaBjMkXVbWGvbqzgexyALBsdjSGpngCwFkDifIBuufFMoWdiTskZoQJMqrTICTojIYxyeSxZyfroRODMbNDRZnPNRWCJPMHDtJmHAYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYBADDvoxIfsfgPyCKmxIubeYTNDtjAyRRDedMiyLprucjiOgjhYeVwBTCMLfrDGXqwpzwVGqMZcLVCxaSJlDSYEofkkEYeqkKHqgBpnbPbgHMLUIDjUMmpBHCSjMJjxzuaiIsNBakqSwQpOQgNczgaczAInLqLIbAatLYHdaopovFOkqIexsFzXzrlcztxcdJJFuyZHRCovgpVvlGsXalGqARmneBZBFelhXkzzfNaVtAyyqWzKqQFbucqNJYWRncGKKLdTkNyoCSfkFohsVVxSAZWEXejhAquXdaaaZlRHoNXvpayoSsqcnCTuGZamCToZvPynaEphIdXaKUaqmBdtZtcOfFSPqKXSLEfZAPaJzldaUEdhITGHvBrQPqWARPXPtPVGNpdGERwVhGCMdfLitTqwLUecgOczXTbRMGxqPexOUAbUdQrIPjyQyQFStFubVVdHtAknjEQxCqkDIfTGXeJtuncbfqQUsXTOdPORvAUkAwwwTndUJHiQecbxzvqzlPWyqOsU"))
 	}
 
 }
+/*
 
-func SQSCallback(m map[string]interface{}) (resp bool, err error) {
-	log.Println("Sent")
-	return true, nil
+func SQSCallback(output map[string]interface{}) {
+	log.Println(output)
 }
 
 func initMemBufferWithCompress() io.ReadWriteCloser {
-	return csp.NewMemBuffer(0)
+	return bf.NewMemBuffer(9)
 }

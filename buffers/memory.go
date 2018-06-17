@@ -1,9 +1,9 @@
-package cloud_storage_proxy
+package buffers
 
 import (
 	"bytes"
-	"compress/gzip"
 	"io"
+	"compress/gzip"
 )
 
 type MemBuffer struct {
