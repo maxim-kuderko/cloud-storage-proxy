@@ -2,8 +2,8 @@ package cloud_storage_proxy
 
 import (
 	"io"
-	"sync"
 	"log"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -23,9 +23,9 @@ func NewCollection(
 	bufferDriverInitializer func() io.ReadWriteCloser,
 	globalBufferMaxSize int64,
 	topicsOptions map[string]*TopicOptions) *Collection {
-		s := int64(0)
+	s := int64(0)
 	c := Collection{m: map[string]*topic{}, storeFunc: storeFunc, globalBufferMaxSize: globalBufferMaxSize, currentDatacount: &s,
-	bufferDriverInitializer: bufferDriverInitializer, topicsOptions: topicsOptions}
+		bufferDriverInitializer: bufferDriverInitializer, topicsOptions: topicsOptions}
 	go c.flush()
 	return &c
 }
@@ -50,18 +50,18 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	return t, ok
 }
 
-func (c *Collection) blockByMaxSize(){
-	if atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize{
+func (c *Collection) blockByMaxSize() {
+	if atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize {
 		c.s.Lock()
 		defer c.s.Unlock()
-		for atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize{
+		for atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize {
 			time.Sleep(time.Millisecond)
 		}
 	}
 }
 
-func (c *Collection) flush(){
-	for range time.NewTicker(time.Millisecond).C{
+func (c *Collection) flush() {
+	for range time.NewTicker(time.Millisecond).C {
 		c.blockByMaxSize()
 	}
 }

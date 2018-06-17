@@ -2,10 +2,10 @@ package cloud_storage_proxy
 
 import (
 	"io"
-	"sync"
-	"time"
 	"log"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type topic struct {
@@ -32,7 +32,7 @@ func newTopic(
 		storeFunc:               storeFunc,
 		bufferDriverInitializer: bufferDriverInitializer,
 		topicOptions:            topicOptions,
-		globalSizeCounter:     globalSizeCounter,
+		globalSizeCounter:       globalSizeCounter,
 	}
 	t.initBuffer()
 	go func() { t.flush() }()
@@ -92,7 +92,7 @@ func (c *topic) send(getLock bool) {
 			log.Println(err)
 			return
 		}
-		atomic.AddInt64(c.globalSizeCounter, -1 * sizeToAck)
+		atomic.AddInt64(c.globalSizeCounter, -1*sizeToAck)
 		c.topicOptions.Callback(res)
 		d = nil
 	}(dataToSend, sizeToAck)

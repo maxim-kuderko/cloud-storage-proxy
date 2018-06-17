@@ -1,16 +1,16 @@
 package cloud_storage_proxy
 
 import (
-	"io"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"bytes"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"io"
 	"log"
-	"bytes"
-	"time"
 	"strconv"
-	"fmt"
+	"time"
 )
 
 func S3Store(reader io.ReadWriteCloser, opt *TopicOptions) (map[string]interface{}, error) {
