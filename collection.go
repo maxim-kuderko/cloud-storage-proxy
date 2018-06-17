@@ -2,7 +2,6 @@ package cloud_storage_proxy
 
 import (
 	"io"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -90,9 +89,7 @@ func (c *Collection) Shutdown() {
 	for t, topic := range c.m {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			log.Println("Shutting down: ", t)
 			topic.shutdown()
-			log.Println("Topic: ", t, " was shutting down")
 			wg.Done()
 		}(&wg)
 
