@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 	"log"
+	"runtime"
 )
 
 type Collection struct {
@@ -15,15 +16,15 @@ type Collection struct {
 	bufferDriverInitializer func() io.ReadWriteCloser
 	topicsOptions           map[string]*TopicOptions
 	currentDatacount        *int64
-	globalBufferMaxSize     int64
+	memMaxUsage             int64
 	s                       sync.RWMutex
 }
 
-func NewCollection(globalBufferMaxSize int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
+func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
 	s := int64(0)
 	c := Collection{m:
 	map[string]*topic{},
-		globalBufferMaxSize: globalBufferMaxSize,
+		memMaxUsage: memMaxUsage,
 		currentDatacount: &s,
 		topicsOptionsFetcher: topicsOptionsFetcher,
 	}
@@ -38,6 +39,7 @@ func (c *Collection) Write(topic string, d []byte) (int, error) {
 	}
 	written, err := t.write(d)
 	if err != nil {
+		log.Println("errrrrr ", err)
 		return 0, err
 	}
 	atomic.AddInt64(c.currentDatacount, int64(written))
@@ -52,13 +54,15 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 }
 
 func (c *Collection) blockByMaxSize() {
-	if atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize {
-		log.Println(atomic.LoadInt64(c.currentDatacount))
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	if m.Sys >= uint64(c.memMaxUsage) {
 		c.s.Lock()
 		defer c.s.Unlock()
 		log.Println("locked")
-		for atomic.LoadInt64(c.currentDatacount) >= c.globalBufferMaxSize {
+		for m.Sys >= uint64(c.memMaxUsage) {
 			time.Sleep(time.Second)
+			runtime.ReadMemStats(&m)
 			log.Println("still locked")
 		}
 		log.Println("released")

@@ -36,7 +36,6 @@ func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) (map[string]interface{}) 
 	defer func() {
 		reader = nil
 	}()
-
 	t := time.Now()
 	filename := bytes.Buffer{}
 	filename.WriteString(s3.prefix)
@@ -57,7 +56,6 @@ func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) (map[string]interface{}) 
 	filename.WriteString(".")
 	filename.WriteString(s3.fileFormat)
 	filename.WriteString(".gz")
-
 	resp, err := s3.uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s3.bucket),
 		Key:    aws.String(filename.String()),

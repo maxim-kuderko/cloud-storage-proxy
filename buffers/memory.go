@@ -1,40 +1,48 @@
 package buffers
 
 import (
-	"bytes"
 	"io"
 	"compress/gzip"
+	"sync"
+	"sync/atomic"
 )
 
 type MemBuffer struct {
-	buff *bytes.Buffer
+	r    *io.PipeReader
+	w    *io.PipeWriter
 	gz   *gzip.Writer
+	rw   sync.RWMutex
+	size int64
 }
 
 func NewMemBuffer(compression int) io.ReadWriteCloser {
-	b := &bytes.Buffer{}
-	g, _ := gzip.NewWriterLevel(b, compression)
+	r, w := io.Pipe()
+	g, _ := gzip.NewWriterLevel(w, compression)
 	return &MemBuffer{
-		buff: b,
+		r:    r,
+		w:    w,
 		gz:   g,
+		size: 0,
 	}
 }
 
 func (mb *MemBuffer) Read(p []byte) (n int, err error) {
-	d, err := mb.buff.Read(p)
+	read, err := mb.r.Read(p)
 	if err != nil {
-		mb.buff = nil
+		return read, err
 	}
-	return d, err
+	return read, err
 }
+
 func (mb *MemBuffer) Write(p []byte) (n int, err error) {
-	sl := mb.buff.Len()
-	_, e := mb.gz.Write(p)
+	w, e := mb.gz.Write(p)
 	mb.gz.Write([]byte("\n"))
-	written := mb.buff.Len() - sl
-	return written, e
+	atomic.AddInt64(&mb.size, int64(w))
+	return w, e
 }
 
 func (mb *MemBuffer) Close() error {
-	return mb.gz.Close()
+	err := mb.gz.Close()
+	mb.w.Close()
+	return err
 }

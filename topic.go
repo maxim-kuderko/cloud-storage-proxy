@@ -26,7 +26,7 @@ func newTopic(globalSizeCounter *int64, topicOptions *TopicOptions) *topic {
 		currentByteSize: 0,
 		lastFlush: &tm,
 	}
-	t.initBuffer()
+	t.swapBuffers(true)
 	go func() { t.flush() }()
 	return &t
 }
@@ -41,8 +41,8 @@ func (c *topic) write(d []byte) (int, error) {
 	w := int64(bWritten)
 	atomic.AddInt64(&c.currentCount, 1)
 	atomic.AddInt64(&c.currentByteSize, w)
-	if (c.topicOptions.MaxSize != -1 && c.currentByteSize >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && c.currentCount >= c.topicOptions.MaxLen) {
-		c.send(false)
+	if ((c.topicOptions.MaxSize != -1 && atomic.LoadInt64(&c.currentByteSize) >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && atomic.LoadInt64(&c.currentCount) >= c.topicOptions.MaxLen)) && atomic.LoadInt64(&c.currentCount) >0{
+		c.swapBuffers(false)
 	}
 	return bWritten, err
 }
@@ -54,45 +54,33 @@ func (c *topic) flush() {
 			if atomic.LoadInt64(c.lastFlush) <= time.Now().Add( -1 * c.topicOptions.Interval).UnixNano() || atomic.LoadInt64(&c.currentCount) == 0{
 				return
 			}
-			c.send(true)
+			c.swapBuffers(true)
 		}(c)
 	}
 
 }
 
-func (c *topic) swapBuffers(getLock bool) io.ReadWriteCloser {
+func (c *topic) swapBuffers(getLock bool) {
 	if getLock {
 		c.s.Lock()
 		defer c.s.Unlock()
 	}
-	c.buff.Close()
-	tmp := c.buff
-	c.initBuffer()
+	if c.buff != nil {
+		c.buff.Close()
+	}
+	c.buff = c.topicOptions.BufferDriver()
+	go func() {
+		res := c.topicOptions.StorageDriver(c.buff)
+		c.topicOptions.Callback(res)
+	}()
 	atomic.StoreInt64(c.lastFlush,time.Now().UnixNano())
 	atomic.StoreInt64(&c.currentCount,0 )
 	atomic.StoreInt64(&c.currentByteSize, 0)
-	return tmp
-}
-
-func (c *topic) send(getLock bool) {
-	sizeToAck := atomic.LoadInt64(&c.currentByteSize)
-	dataToSend := c.swapBuffers(getLock)
-	go func(d io.ReadWriteCloser, sizeToAck int64) {
-		defer func() {
-			atomic.AddInt64(c.globalSizeCounter, -1*sizeToAck)
-			d = nil
-		}()
-		res := c.topicOptions.StorageDriver(d)
-		c.topicOptions.Callback(res)
-	}(dataToSend, sizeToAck)
-}
-
-func (c *topic) initBuffer() {
-	c.buff = c.topicOptions.BufferDriver()
+	return
 }
 
 func (c *topic) shutdown() {
-	c.send(true)
+	c.swapBuffers(true)
 }
 
 type TopicOptions struct {

@@ -2,11 +2,11 @@ package main
 
 import (
 	csp "github.com/maxim-kuderko/storage-buffer"
-	bf "github.com/maxim-kuderko/storage-buffer/buffers"
 	strg "github.com/maxim-kuderko/storage-buffer/storage"
+	bf "github.com/maxim-kuderko/storage-buffer/buffers"
 	"time"
-	"io"
 	"log"
+	"io"
 )
 
 func main() {
@@ -14,16 +14,10 @@ func main() {
 	a := csp.TopicOptions{
 		Name:     "test",
 		MaxLen:   -1,
-		MaxSize:  1024 * 1024 * 50,
-		Interval: time.Second * 3,
-		StoreCredentials: map[string]string{
-			"aws-region": "",
-			"aws-key":    "",
-			"aws-secret": "",
-			"bucket":     "",
-		},
+		MaxSize:  1024 * 1024 * 250,
+		Interval: time.Second * 60,
 		BufferDriver: initMemBufferWithCompress,
-		StorageDriver: strg.NewS3Loader().S3Store
+		StorageDriver: strg.NewS3Loader("test", "us-east-1","", "","txt","", "").S3Store,
 		Callback: SQSCallback,
 	}
 	cfg := cfg{
@@ -35,7 +29,15 @@ func main() {
 	}
 
 }
-/*
+
+type cfg struct {
+	m map[string]*csp.TopicOptions
+}
+
+func (cfg *cfg) get(key string) *csp.TopicOptions{
+	return cfg.m[key]
+}
+
 
 func SQSCallback(output map[string]interface{}) {
 	log.Println(output)
