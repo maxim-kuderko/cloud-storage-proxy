@@ -10,11 +10,11 @@ import (
 // this buffer comes with built in gzip func
 // the function can be non thread safe as the topic already is
 type Pipe struct {
-	r    *io.PipeReader
-	w    *io.PipeWriter
-	compressor   io.WriteCloser
-	size int64
-	sep  []byte
+	r          *io.PipeReader
+	w          *io.PipeWriter
+	compressor io.WriteCloser
+	size       int64
+	sep        []byte
 	io.ReadWriteCloser
 }
 
@@ -22,11 +22,11 @@ type Pipe struct {
 func NewPipeBuffer(compressorFunc func(w io.WriteCloser) io.WriteCloser, separator []byte) io.ReadWriteCloser {
 	r, w := io.Pipe()
 	return &Pipe{
-		r:    r,
-		w:    w,
-		compressor:   compressorFunc(w),
-		size: 0,
-		sep:  separator,
+		r:          r,
+		w:          w,
+		compressor: compressorFunc(w),
+		size:       0,
+		sep:        separator,
 	}
 }
 

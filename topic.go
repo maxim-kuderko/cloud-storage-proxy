@@ -27,7 +27,7 @@ func newTopic(globalSizeCounter *int64, topicOptions *TopicOptions) *topic {
 		currentCount:      0,
 		currentByteSize:   0,
 		lastFlush:         &tm,
-		ticker: time.NewTicker(time.Second),
+		ticker:            time.NewTicker(time.Second),
 	}
 	t.swapBuffers(true)
 	go func() { t.flush() }()
