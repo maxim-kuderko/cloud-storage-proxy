@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// This is the struct that is responsible for executing the users Write commands,
+// Collection struct is responsible for executing the users Write commands,
 // and is responsible for the strategy of creation, initialization of the topics
 type Collection struct {
 	topicsOptionsFetcher    func(topicName string) *TopicOptions
