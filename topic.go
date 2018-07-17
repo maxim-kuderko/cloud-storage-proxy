@@ -81,7 +81,7 @@ func (c *topic) swapBuffers(getLock bool) {
 func (c *topic) shutdown() {
 	c.swapBuffers(true)
 }
-// the data necessary to init a topic
+// TopicOptions contains the data necessary to init a topic
 // Name: name of the topic key
 // maxLen at what count of events in topic should we flush the buffer
 // maxSize at what size of events in bytes should we flish the buffer of the topic

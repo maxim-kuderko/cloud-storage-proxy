@@ -21,7 +21,7 @@ type Collection struct {
 	s                       sync.RWMutex
 }
 
-// Initiate the collection with the default params of limits, and a function the fetches the topic config
+// NewCollection initiates the collection with the default params of limits, and a function the fetches the topic config
 func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
 	s := int64(0)
 	c := Collection{m: map[string]*topic{},
@@ -49,7 +49,7 @@ func (c *Collection) Write(topicName string, d []byte) (int, error) {
 	return written, nil
 }
 
-// blocks until collection and it's topic data is empty
+// Shutdown blocks until collection and it's topic data is empty
 func (c *Collection) Shutdown() {
 	c.s.Lock()
 	defer c.s.Unlock()
