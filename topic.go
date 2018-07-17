@@ -41,17 +41,21 @@ func (c *topic) write(d []byte) (int, error) {
 	w := int64(bWritten)
 	atomic.AddInt64(&c.currentCount, 1)
 	atomic.AddInt64(&c.currentByteSize, w)
-	if ((c.topicOptions.MaxSize != -1 && atomic.LoadInt64(&c.currentByteSize) >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && atomic.LoadInt64(&c.currentCount) >= c.topicOptions.MaxLen)) && atomic.LoadInt64(&c.currentCount) > 0 {
+	if c.shouldFlush() {
 		c.swapBuffers(false)
 	}
 	return bWritten, err
 }
 
+func (c *topic) shouldFlush() bool {
+	return ((c.topicOptions.MaxSize != -1 && atomic.LoadInt64(&c.currentByteSize) >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && atomic.LoadInt64(&c.currentCount) >= c.topicOptions.MaxLen)) && atomic.LoadInt64(&c.currentCount) > 0
+}
+
 func (c *topic) flush() {
-	ticker := time.NewTicker(c.topicOptions.Interval)
+	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
 		go func(c *topic) {
-			if atomic.LoadInt64(c.lastFlush) <= time.Now().Add(-1*c.topicOptions.Interval).UnixNano() || atomic.LoadInt64(&c.currentCount) == 0 {
+			if time.Now().Unix()-atomic.LoadInt64(c.lastFlush) <= int64(c.topicOptions.Interval) || atomic.LoadInt64(&c.currentCount) == 0 {
 				return
 			}
 			c.swapBuffers(true)
@@ -72,7 +76,7 @@ func (c *topic) swapBuffers(getLock bool) {
 	go func() {
 		c.topicOptions.Callback(c.topicOptions.StorageDriver(c.buff))
 	}()
-	atomic.StoreInt64(c.lastFlush, time.Now().UnixNano())
+	atomic.StoreInt64(c.lastFlush, time.Now().Unix())
 	atomic.StoreInt64(&c.currentCount, 0)
 	atomic.StoreInt64(&c.currentByteSize, 0)
 	return

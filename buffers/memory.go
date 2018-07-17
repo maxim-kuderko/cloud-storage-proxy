@@ -47,6 +47,7 @@ func (pb *Pipe) Read(p []byte) (n int, err error) {
 
 // Write writes to the underlining buffer
 // NEED to close it on write finish
+// note: the returned n int is the len(p) not the len of bytes actually written to buffer
 func (pb *Pipe) Write(p []byte) (n int, err error) {
 	w, e := pb.gz.Write(p)
 	pb.gz.Write(pb.sep)
