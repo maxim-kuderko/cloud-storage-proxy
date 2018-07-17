@@ -11,12 +11,14 @@ import (
 	"strconv"
 	"time"
 )
+
 // S3Loader flushed the reader buffer to S3 storage with provided credentials
 // Use NewS3Loader to init
 type S3Loader struct {
 	uploader                          *s3manager.Uploader
 	topic, bucket, prefix, fileFormat string
 }
+
 // NewS3Loader initialized the s3 storage driver with credentials and saves the connections for reuse to avoid overloading the NIC
 func NewS3Loader(topic, region, bucket, prefix, fileFormat, key, secret string) *S3Loader {
 	sess := session.Must(session.NewSession(&aws.Config{
@@ -31,6 +33,7 @@ func NewS3Loader(topic, region, bucket, prefix, fileFormat, key, secret string) 
 		fileFormat: fileFormat,
 	}
 }
+
 // S3Store is the function to passdown to the topic config
 func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) (map[string]interface{}, error) {
 	t := time.Now()

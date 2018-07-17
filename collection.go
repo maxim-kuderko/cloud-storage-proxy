@@ -25,8 +25,8 @@ type Collection struct {
 func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
 	s := int64(0)
 	c := Collection{m: map[string]*topic{},
-		memMaxUsage: memMaxUsage,
-		currentDatacount: &s,
+		memMaxUsage:          memMaxUsage,
+		currentDatacount:     &s,
 		topicsOptionsFetcher: topicsOptionsFetcher,
 	}
 	go c.blockByMaxSize()
@@ -90,7 +90,7 @@ func (c *Collection) blockByMaxSize() {
 	}
 }
 
-func (c *Collection) safeInitTopic(topic string) (*topic) {
+func (c *Collection) safeInitTopic(topic string) *topic {
 	c.s.Lock()
 	defer c.s.Unlock()
 	v, ok := c.m[topic]
