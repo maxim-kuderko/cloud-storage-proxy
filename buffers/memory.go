@@ -49,7 +49,7 @@ func (pb *Pipe) Write(p []byte) (n int, err error) {
 	atomic.AddInt64(&pb.size, int64(w))
 	return w, e
 }
-// Closer is called the the expiration of a buffer (flush) is executed i.e every 10 secs
+// Close is called the the expiration of a buffer (flush) is executed i.e every 10 secs
 // which means the
 func (pb *Pipe) Close() error {
 	err := pb.gz.Close()
