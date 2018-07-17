@@ -11,12 +11,13 @@ import (
 	"strconv"
 	"time"
 )
-
+// S3Loader flushed the reader buffer to S3 storage with provided credentials
+// Use NewS3Loader to init
 type S3Loader struct {
 	uploader                          *s3manager.Uploader
 	topic, bucket, prefix, fileFormat string
 }
-
+// NewS3Loader initialized the s3 storage driver with credentials and saves the connections for reuse to avoid overloading the NIC
 func NewS3Loader(topic, region, bucket, prefix, fileFormat, key, secret string) *S3Loader {
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region:      aws.String(region),
@@ -30,18 +31,15 @@ func NewS3Loader(topic, region, bucket, prefix, fileFormat, key, secret string) 
 		fileFormat: fileFormat,
 	}
 }
-
-func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) map[string]interface{} {
-	defer func() {
-		reader = nil
-	}()
+// S3Store is the function to passdown to the topic config
+func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) (map[string]interface{}, error) {
 	t := time.Now()
 	filename := bytes.Buffer{}
 	filename.WriteString(s3.prefix)
 	filename.WriteString("/")
 	filename.WriteString(s3.topic)
 	filename.WriteString("/")
-	filename.WriteString(strconv.Itoa(time.Now().Year()))
+	filename.WriteString(strconv.Itoa(t.Year()))
 	filename.WriteString("/")
 	filename.WriteString(fmt.Sprintf("%02d", t.Month()))
 	filename.WriteString("/")
@@ -62,19 +60,8 @@ func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) map[string]interface{} {
 	})
 	output := make(map[string]interface{})
 	if err != nil {
-		output["Error"] = err.Error()
-		return output
+		return output, err
 	}
 	output["UploadID"] = resp.UploadID
-	return output
-}
-
-type TopicOptions struct {
-	Name             string
-	MaxLen           int64
-	MaxSize          int64
-	Interval         time.Duration
-	StoreCredentials map[string]string
-	Format           string
-	Callback         func(m map[string]interface{}) (resp bool, err error)
+	return output, nil
 }

@@ -39,10 +39,13 @@ func (cfg *cfg) get(key string) *csp.TopicOptions{
 }
 
 
-func SQSCallback(output map[string]interface{}) {
-	log.Println(output)
+func SQSCallback(output map[string]interface{}, err error) {
+	if err != nil{
+		log.Println("error: ", err.Error())
+	}
+	log.Println("success: ",output)
 }
 
 func initMemBufferWithCompress() io.ReadWriteCloser {
-	return bf.NewMemBuffer(9)
+	return bf.NewPipeBuffer(9, []byte{'\n'})
 }

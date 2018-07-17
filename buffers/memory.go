@@ -3,46 +3,56 @@ package buffers
 import (
 	"compress/gzip"
 	"io"
-	"sync"
 	"sync/atomic"
 )
-
-type MemBuffer struct {
+// Pipe buffer is will direct all received bytes to the reader
+// this is the most basic buffers that given a fast enough reader will hold minimal data in mem
+// this buffer comes with built in gzip func
+// the function can be non thread safe as the topic already is
+type Pipe struct {
 	r    *io.PipeReader
 	w    *io.PipeWriter
 	gz   *gzip.Writer
-	rw   sync.RWMutex
 	size int64
+	sep []byte
+	io.ReadWriteCloser
 }
-
-func NewMemBuffer(compression int) io.ReadWriteCloser {
+// NewPipeBuffer initialized the buffer with a user defined  gzip compression level and a separator for the data
+func NewPipeBuffer(compression int, separator []byte) io.ReadWriteCloser {
 	r, w := io.Pipe()
 	g, _ := gzip.NewWriterLevel(w, compression)
-	return &MemBuffer{
+	return &Pipe{
 		r:    r,
 		w:    w,
 		gz:   g,
 		size: 0,
+		sep:  separator,
 	}
 }
-
-func (mb *MemBuffer) Read(p []byte) (n int, err error) {
-	read, err := mb.r.Read(p)
+// Read method reads from the pipe
+// No need to close it on EOF
+func (pb *Pipe) Read(p []byte) (n int, err error) {
+	read, err := pb.r.Read(p)
 	if err != nil {
+		if err == io.EOF{
+			pb.r.Close()
+		}
 		return read, err
 	}
 	return read, err
 }
-
-func (mb *MemBuffer) Write(p []byte) (n int, err error) {
-	w, e := mb.gz.Write(p)
-	mb.gz.Write([]byte("\n"))
-	atomic.AddInt64(&mb.size, int64(w))
+// Write writes to the underlining buffer
+// NEED to close it on write finish
+func (pb *Pipe) Write(p []byte) (n int, err error) {
+	w, e := pb.gz.Write(p)
+	pb.gz.Write(pb.sep)
+	atomic.AddInt64(&pb.size, int64(w))
 	return w, e
 }
-
-func (mb *MemBuffer) Close() error {
-	err := mb.gz.Close()
-	mb.w.Close()
+// Closer is called the the expiration of a buffer (flush) is executed i.e every 10 secs
+// which means the
+func (pb *Pipe) Close() error {
+	err := pb.gz.Close()
+	pb.w.Close()
 	return err
 }
