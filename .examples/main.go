@@ -7,7 +7,6 @@ import (
 	"log"
 	"io"
 	"github.com/klauspost/pgzip"
-	"runtime"
 	"os"
 	"os/signal"
 )
@@ -16,27 +15,22 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop)
 	a := csp.TopicOptions{
-		Name:     "test",
-		MaxLen:   -1,
-		MaxSize:  -1,
-		Interval: 10,
-		BufferDriver: initMemBufferWithCompress,
-		StorageDriver: strg.NewS3Loader("test", "us-east-1","", "","txt","", "").S3Store,
-		Callback: SQSCallback,
+		Name:          "test",
+		MaxLen:        -1,
+		MaxSize:       -1,
+		Interval:      10,
+		BufferDriver:  initMemBufferWithCompress,
+		StorageDriver: strg.NewS3Loader("test", "us-east-1", "", "", "txt", "", "").S3Store,
+		Callback:      SQSCallback,
 	}
 	cfg := cfg{
-		m:map[string]*csp.TopicOptions{"test": &a},
+		m: map[string]*csp.TopicOptions{"test": &a},
 	}
 	c := csp.NewCollection(1024*1024*1024*10, cfg.get)
-	sem := make(chan bool, runtime.NumCPU() * 2)
 	for {
-		sem <- true
-		go func() {
-			defer func() {<-sem}()
-			if _, err := c.Write("test", []byte("XVlBzgbaiCMRAjWwhTHctcuAxhxKQFDaFpLSjFbcXoEFfRsWxPLDnJObCsNVlgTeMaPEZQleQYhYzRyWJjPjzpfRFEgmotaFetHsbZRjxAwnwekrBEmfdzdcEkXBAkjQZLCtTMtTCoaNatyyiNKAReKJyiXJrscctNswYNsGRussVmaozFZBsbOJiFQGZsnwTKSmVoiGLOpbUOpEdKupdOMeRVjaRzLNTXYeUCWKsXbGyRAOmBTvKSJfjzaLbtZsyMGeuDtRzQMDQiYCOhgHOvgSeycJPJHYNufNjJhhjUVRuSqfgqVMkPYVkURUpiFvIZRgBmyArKCtzkjkZIvaBjMkXVbWGvbqzgexyALBsdjSGpngCwFkDifIBuufFMoWdiTskZoQJMqrTICTojIYxyeSxZyfroRODMbNDRZnPNRWCJPMHDtJmHAYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYBADDvoxIfsfgPyCKmxIubeYTNDtjAyRRDedMiyLprucjiOgjhYeVwBTCMLfrDGXqwpzwVGqMZcLVCxaSJlDSYEofkkEYeqkKHqgBpnbPbgHMLUIDjUMmpBHCSjMJjxzuaiIsNBakqSwQpOQgNczgaczAInLqLIbAatLYHdaopovFOkqIexsFzXzrlcztxcdJJFuyZHRCovgpVvlGsXalGqARmneBZBFelhXkzzfNaVtAyyqWzKqQFbucqNJYWRncGKKLdTkNyoCSfkFohsVVxSAZWEXejhAquXdaaaZlRHoNXvpayoSsqcnCTuGZamCToZvPynaEphIdXaKUaqmBdtZtcOfFSPqKXSLEfZAPaJzldaUEdhITGHvBrQPqWARPXPtPVGNpdGERwVhGCMdfLitTqwLUecgOczXTbRMGxqPexOUAbUdQrIPjyQyQFStFubVVdHtAknjEQxCqkDIfTGXeJtuncbfqQUsXTOdPORvAUkAwwwTndUJHiQecbxzvqzlPWyqOsU")); err !=nil{
-				log.Println(err)
-			}
-		}()
+		if _, err := c.Write("test", []byte("XVlBzgbaiCMRAjWwhTHctcuAxhxKQFDaFpLSjFbcXoEFfRsWxPLDnJObCsNVlgTeMaPEZQleQYhYzRyWJjPjzpfRFEgmotaFetHsbZRjxAwnwekrBEmfdzdcEkXBAkjQZLCtTMtTCoaNatyyiNKAReKJyiXJrscctNswYNsGRussVmaozFZBsbOJiFQGZsnwTKSmVoiGLOpbUOpEdKupdOMeRVjaRzLNTXYeUCWKsXbGyRAOmBTvKSJfjzaLbtZsyMGeuDtRzQMDQiYCOhgHOvgSeycJPJHYNufNjJhhjUVRuSqfgqVMkPYVkURUpiFvIZRgBmyArKCtzkjkZIvaBjMkXVbWGvbqzgexyALBsdjSGpngCwFkDifIBuufFMoWdiTskZoQJMqrTICTojIYxyeSxZyfroRODMbNDRZnPNRWCJPMHDtJmHAYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYBADDvoxIfsfgPyCKmxIubeYTNDtjAyRRDedMiyLprucjiOgjhYeVwBTCMLfrDGXqwpzwVGqMZcLVCxaSJlDSYEofkkEYeqkKHqgBpnbPbgHMLUIDjUMmpBHCSjMJjxzuaiIsNBakqSwQpOQgNczgaczAInLqLIbAatLYHdaopovFOkqIexsFzXzrlcztxcdJJFuyZHRCovgpVvlGsXalGqARmneBZBFelhXkzzfNaVtAyyqWzKqQFbucqNJYWRncGKKLdTkNyoCSfkFohsVVxSAZWEXejhAquXdaaaZlRHoNXvpayoSsqcnCTuGZamCToZvPynaEphIdXaKUaqmBdtZtcOfFSPqKXSLEfZAPaJzldaUEdhITGHvBrQPqWARPXPtPVGNpdGERwVhGCMdfLitTqwLUecgOczXTbRMGxqPexOUAbUdQrIPjyQyQFStFubVVdHtAknjEQxCqkDIfTGXeJtuncbfqQUsXTOdPORvAUkAwwwTndUJHiQecbxzvqzlPWyqOsU")); err != nil {
+			log.Println(err)
+		}
 	}
 
 	<-stop
@@ -48,16 +42,15 @@ type cfg struct {
 	m map[string]*csp.TopicOptions
 }
 
-func (cfg *cfg) get(key string) *csp.TopicOptions{
+func (cfg *cfg) get(key string) *csp.TopicOptions {
 	return cfg.m[key]
 }
 
-
 func SQSCallback(output map[string]interface{}, err error) {
-	if err != nil{
+	if err != nil {
 		log.Println("error: ", err.Error())
 	}
-	log.Println("success: ",output)
+	log.Println("success: ", output)
 }
 
 func initMemBufferWithCompress() io.ReadWriteCloser {
