@@ -2,13 +2,14 @@ package storage_buffer
 
 import (
 	"io"
-	"log"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+// This is the struct that is responsible for executing the users Write commands,
+// and is responsible for the strategy of creation, initialization of the topics
 type Collection struct {
 	topicsOptionsFetcher    func(topicName string) *TopicOptions
 	m                       map[string]*topic
@@ -20,30 +21,49 @@ type Collection struct {
 	s                       sync.RWMutex
 }
 
+// Initiate the collection with the default params of limits, and a function the fetches the topic config
 func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
 	s := int64(0)
 	c := Collection{m: map[string]*topic{},
-		memMaxUsage:          memMaxUsage,
-		currentDatacount:     &s,
+		memMaxUsage: memMaxUsage,
+		currentDatacount: &s,
 		topicsOptionsFetcher: topicsOptionsFetcher,
 	}
-	go c.flush()
+	go c.blockByMaxSize()
 	return &c
 }
 
-func (c *Collection) Write(topic string, d []byte) (int, error) {
-	t, ok := c.safeRead(topic)
+// Write the data to a specific topic in a thread-safe manner
+// This function is blocking at boot time of any new topic and when the Collection has reached memMaxUsage
+// *** -> if you use go functions to call it implement a semaphore to avoid excess go routines <- ***
+func (c *Collection) Write(topicName string, d []byte) (int, error) {
+	t, ok := c.safeRead(topicName)
 	if !ok {
-		t, ok = c.safeInitTopic(topic)
+		t, ok = c.safeInitTopic(topicName)
 	}
 	written, err := t.write(d)
 	if err != nil {
-		log.Println("errrrrr ", err)
 		return 0, err
 	}
 	atomic.AddInt64(c.currentDatacount, int64(written))
-	return written, err
+	return written, nil
 }
+
+// blocks until collection and it's topic data is empty
+func (c *Collection) Shutdown() {
+	c.s.Lock()
+	defer c.s.Unlock()
+	wg := sync.WaitGroup{}
+	wg.Add(len(c.m))
+	for _, topic := range c.m {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			topic.shutdown()
+		}(&wg)
+	}
+	wg.Wait()
+}
+
 
 func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	c.s.RLock()
@@ -51,28 +71,25 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	t, ok = c.m[topic]
 	return t, ok
 }
-
+// checks the mem usage of the runtime every milli and checks it against memMaxsize, blocks incoming writes until mem will free up
 func (c *Collection) blockByMaxSize() {
 	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	if m.Sys >= uint64(c.memMaxUsage) {
-		c.s.Lock()
-		defer c.s.Unlock()
-		log.Println("locked")
-		for m.Sys >= uint64(c.memMaxUsage) {
-			time.Sleep(time.Second)
-			runtime.ReadMemStats(&m)
-			log.Println("still locked")
+	for range time.NewTicker(time.Millisecond).C {
+		runtime.ReadMemStats(&m)
+		if m.Sys >= uint64(c.memMaxUsage) {
+			func(){
+				c.s.Lock()
+				defer c.s.Unlock()
+				for m.Sys >= uint64(c.memMaxUsage) {
+					time.Sleep(time.Millisecond)
+					runtime.ReadMemStats(&m)
+				}
+			}()
+
 		}
-		log.Println("released")
 	}
 }
 
-func (c *Collection) flush() {
-	for range time.NewTicker(time.Millisecond).C {
-		c.blockByMaxSize()
-	}
-}
 
 func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
 	c.s.Lock()
@@ -86,19 +103,4 @@ func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
 		c.topicsOptionsFetcher(topic))
 	c.m[topic] = v
 	return v, true
-}
-
-func (c *Collection) Shutdown() {
-	c.s.Lock()
-	defer c.s.Unlock()
-	wg := sync.WaitGroup{}
-	for _, topic := range c.m {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			topic.shutdown()
-			wg.Done()
-		}(&wg)
-
-	}
-	wg.Wait()
 }
