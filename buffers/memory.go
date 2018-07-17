@@ -1,7 +1,6 @@
 package buffers
 
 import (
-	"compress/gzip"
 	"io"
 	"sync/atomic"
 )
@@ -13,20 +12,19 @@ import (
 type Pipe struct {
 	r    *io.PipeReader
 	w    *io.PipeWriter
-	gz   *gzip.Writer
+	compressor   io.WriteCloser
 	size int64
 	sep  []byte
 	io.ReadWriteCloser
 }
 
 // NewPipeBuffer initialized the buffer with a user defined  gzip compression level and a separator for the data
-func NewPipeBuffer(compression int, separator []byte) io.ReadWriteCloser {
+func NewPipeBuffer(compressorFunc func(w io.WriteCloser) io.WriteCloser, separator []byte) io.ReadWriteCloser {
 	r, w := io.Pipe()
-	g, _ := gzip.NewWriterLevel(w, compression)
 	return &Pipe{
 		r:    r,
 		w:    w,
-		gz:   g,
+		compressor:   compressorFunc(w),
 		size: 0,
 		sep:  separator,
 	}
@@ -49,8 +47,8 @@ func (pb *Pipe) Read(p []byte) (n int, err error) {
 // NEED to close it on write finish
 // note: the returned n int is the len(p) not the len of bytes actually written to buffer
 func (pb *Pipe) Write(p []byte) (n int, err error) {
-	w, e := pb.gz.Write(p)
-	pb.gz.Write(pb.sep)
+	w, e := pb.compressor.Write(p)
+	pb.compressor.Write(pb.sep)
 	atomic.AddInt64(&pb.size, int64(w))
 	return w, e
 }
@@ -58,7 +56,7 @@ func (pb *Pipe) Write(p []byte) (n int, err error) {
 // Close is called the the expiration of a buffer (flush) is executed i.e every 10 secs
 // which means the
 func (pb *Pipe) Close() error {
-	err := pb.gz.Close()
+	err := pb.compressor.Close()
 	pb.w.Close()
 	return err
 }

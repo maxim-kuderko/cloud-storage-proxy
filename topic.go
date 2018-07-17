@@ -15,6 +15,8 @@ type topic struct {
 	globalSizeCounter *int64
 	lastFlush         *int64
 	s                 sync.Mutex
+	ticker            *time.Ticker
+	wg                sync.WaitGroup
 }
 
 func newTopic(globalSizeCounter *int64, topicOptions *TopicOptions) *topic {
@@ -25,6 +27,7 @@ func newTopic(globalSizeCounter *int64, topicOptions *TopicOptions) *topic {
 		currentCount:      0,
 		currentByteSize:   0,
 		lastFlush:         &tm,
+		ticker: time.NewTicker(time.Second),
 	}
 	t.swapBuffers(true)
 	go func() { t.flush() }()
@@ -52,8 +55,7 @@ func (c *topic) shouldFlush() bool {
 }
 
 func (c *topic) flush() {
-	ticker := time.NewTicker(time.Second)
-	for range ticker.C {
+	for range c.ticker.C {
 		go func(c *topic) {
 			if time.Now().Unix()-atomic.LoadInt64(c.lastFlush) <= int64(c.topicOptions.Interval) || atomic.LoadInt64(&c.currentCount) == 0 {
 				return
@@ -73,7 +75,9 @@ func (c *topic) swapBuffers(getLock bool) {
 		c.buff.Close()
 	}
 	c.buff = c.topicOptions.BufferDriver()
+	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
 		c.topicOptions.Callback(c.topicOptions.StorageDriver(c.buff))
 	}()
 	atomic.StoreInt64(c.lastFlush, time.Now().Unix())
@@ -83,7 +87,10 @@ func (c *topic) swapBuffers(getLock bool) {
 }
 
 func (c *topic) shutdown() {
-	c.swapBuffers(true)
+	c.s.Lock()
+	go c.ticker.Stop()
+	c.buff.Close()
+	c.wg.Wait()
 }
 
 // TopicOptions contains the data necessary to init a topic
