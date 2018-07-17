@@ -21,7 +21,7 @@ func main() {
 		Interval:      10,
 		BufferDriver:  initMemBufferWithCompress,
 		StorageDriver: strg.NewS3Loader("test", "us-east-1", "", "", "txt", "", "").S3Store,
-		Callback:      SQSCallback,
+		Callback:      LogCallback,
 	}
 	cfg := cfg{
 		m: map[string]*csp.TopicOptions{"test": &a},
@@ -46,7 +46,7 @@ func (cfg *cfg) get(key string) *csp.TopicOptions {
 	return cfg.m[key]
 }
 
-func SQSCallback(output map[string]interface{}, err error) {
+func LogCallback(output map[string]interface{}, err error) {
 	if err != nil {
 		log.Println("error: ", err.Error())
 	}
