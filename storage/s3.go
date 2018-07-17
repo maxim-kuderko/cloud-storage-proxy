@@ -4,18 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
 	"strconv"
 	"time"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 type S3Loader struct {
-	uploader   *s3manager.Uploader
-	topic, bucket,	prefix,	fileFormat      string
-
+	uploader                          *s3manager.Uploader
+	topic, bucket, prefix, fileFormat string
 }
 
 func NewS3Loader(topic, region, bucket, prefix, fileFormat, key, secret string) *S3Loader {
@@ -24,15 +23,15 @@ func NewS3Loader(topic, region, bucket, prefix, fileFormat, key, secret string) 
 		Credentials: credentials.NewStaticCredentials(key, secret, ""),
 	}))
 	return &S3Loader{
-		uploader: s3manager.NewUploader(sess),
-		bucket:   bucket,
-		topic:    topic,
-		prefix:   prefix,
+		uploader:   s3manager.NewUploader(sess),
+		bucket:     bucket,
+		topic:      topic,
+		prefix:     prefix,
 		fileFormat: fileFormat,
 	}
 }
 
-func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) (map[string]interface{}) {
+func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) map[string]interface{} {
 	defer func() {
 		reader = nil
 	}()
@@ -62,7 +61,7 @@ func (s3 *S3Loader) S3Store(reader io.ReadWriteCloser) (map[string]interface{}) 
 		Body:   reader,
 	})
 	output := make(map[string]interface{})
-	if err != nil{
+	if err != nil {
 		output["Error"] = err.Error()
 		return output
 	}

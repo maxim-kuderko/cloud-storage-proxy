@@ -1,8 +1,8 @@
 package buffers
 
 import (
-	"io"
 	"compress/gzip"
+	"io"
 	"sync"
 	"sync/atomic"
 )

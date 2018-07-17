@@ -2,11 +2,11 @@ package storage_buffer
 
 import (
 	"io"
+	"log"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
-	"log"
-	"runtime"
 )
 
 type Collection struct {
@@ -22,10 +22,9 @@ type Collection struct {
 
 func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
 	s := int64(0)
-	c := Collection{m:
-	map[string]*topic{},
-		memMaxUsage: memMaxUsage,
-		currentDatacount: &s,
+	c := Collection{m: map[string]*topic{},
+		memMaxUsage:          memMaxUsage,
+		currentDatacount:     &s,
 		topicsOptionsFetcher: topicsOptionsFetcher,
 	}
 	go c.flush()
