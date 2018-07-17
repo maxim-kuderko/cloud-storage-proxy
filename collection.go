@@ -39,7 +39,7 @@ func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string
 func (c *Collection) Write(topicName string, d []byte) (int, error) {
 	t, ok := c.safeRead(topicName)
 	if !ok {
-		t, ok = c.safeInitTopic(topicName)
+		t = c.safeInitTopic(topicName)
 	}
 	written, err := t.write(d)
 	if err != nil {
@@ -90,16 +90,16 @@ func (c *Collection) blockByMaxSize() {
 	}
 }
 
-func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
+func (c *Collection) safeInitTopic(topic string) (*topic) {
 	c.s.Lock()
 	defer c.s.Unlock()
 	v, ok := c.m[topic]
 	if ok {
-		return v, true
+		return v
 	}
 	v = newTopic(
 		c.currentDatacount,
 		c.topicsOptionsFetcher(topic))
 	c.m[topic] = v
-	return v, true
+	return v
 }
