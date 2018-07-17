@@ -55,15 +55,14 @@ func (c *Collection) Shutdown() {
 	defer c.s.Unlock()
 	wg := sync.WaitGroup{}
 	wg.Add(len(c.m))
-	for _, topic := range c.m {
-		go func(wg *sync.WaitGroup) {
+	for _, t := range c.m {
+		go func(t *topic, wg *sync.WaitGroup) {
 			defer wg.Done()
-			topic.shutdown()
-		}(&wg)
+			t.shutdown()
+		}(t, &wg)
 	}
 	wg.Wait()
 }
-
 
 func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	c.s.RLock()
@@ -71,13 +70,14 @@ func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
 	t, ok = c.m[topic]
 	return t, ok
 }
+
 // checks the mem usage of the runtime every milli and checks it against memMaxsize, blocks incoming writes until mem will free up
 func (c *Collection) blockByMaxSize() {
 	var m runtime.MemStats
 	for range time.NewTicker(time.Millisecond).C {
 		runtime.ReadMemStats(&m)
 		if m.Sys >= uint64(c.memMaxUsage) {
-			func(){
+			func() {
 				c.s.Lock()
 				defer c.s.Unlock()
 				for m.Sys >= uint64(c.memMaxUsage) {
@@ -89,7 +89,6 @@ func (c *Collection) blockByMaxSize() {
 		}
 	}
 }
-
 
 func (c *Collection) safeInitTopic(topic string) (*topic, bool) {
 	c.s.Lock()
