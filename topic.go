@@ -67,20 +67,18 @@ func (c *topic) flush() {
 }
 
 func (c *topic) swapBuffers(getLock bool) {
-	tmp := c.topicOptions.BufferDriver()
 	if getLock {
 		c.s.Lock()
 		defer c.s.Unlock()
 	}
-	old := c.buff
-	c.buff = tmp
-	if old != nil {
-		go old.Close()
+	if c.buff != nil {
+		c.buff.Close()
 	}
+	c.buff = c.topicOptions.BufferDriver()
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
-		c.topicOptions.Callback(c.topicOptions.StorageDriver(tmp))
+		c.topicOptions.Callback(c.topicOptions.StorageDriver(c.buff))
 	}()
 	atomic.StoreInt64(c.lastFlush, time.Now().Unix())
 	atomic.StoreInt64(&c.currentCount, 0)
