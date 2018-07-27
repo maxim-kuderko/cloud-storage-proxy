@@ -96,13 +96,14 @@ func (c *topic) shutdown() {
 // TopicOptions contains the data necessary to init a topic
 // Name: name of the topic key
 // maxLen at what count of events in topic should we flush the buffer
-// maxSize at what size of events in bytes should we flish the buffer of the topic
+// maxSize at what size of events in bytes should we flush the buffer of the topic
 // at what max internal should we flush the topic buffer
 // note: the topic will flush when we'll hit the limit of any of the three conditions above
 // the buffer driver implementation, some are provided in the buffers folder
 // the storage buffer is the sink of the data some are provided in the storage folder
 // callback function, after a flush to sink this function will be invoked with an error/nil, and the output of the storage driver for the user's convenience
 type TopicOptions struct {
+	ID            string
 	Name          string
 	MaxLen        int64
 	MaxSize       int64
@@ -110,4 +111,5 @@ type TopicOptions struct {
 	BufferDriver  func() io.ReadWriteCloser
 	StorageDriver func(closer io.ReadWriteCloser) (output map[string]interface{}, err error)
 	Callback      func(output map[string]interface{}, err error)
+	LastUpdated   time.Time
 }

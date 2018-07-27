@@ -11,7 +11,6 @@ import (
 // Collection struct is responsible for executing the users Write commands,
 // and is responsible for the strategy of creation, initialization of the topics
 type Collection struct {
-	topicsOptionsFetcher    func(topicName string) *TopicOptions
 	m                       map[string]*topic
 	storeFunc               func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
@@ -22,12 +21,11 @@ type Collection struct {
 }
 
 // NewCollection initiates the collection with the default params of limits, and a function the fetches the topic config
-func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string) *TopicOptions) *Collection {
+func NewCollection(memMaxUsage int64) *Collection {
 	s := int64(0)
 	c := Collection{m: map[string]*topic{},
 		memMaxUsage:          memMaxUsage,
 		currentDatacount:     &s,
-		topicsOptionsFetcher: topicsOptionsFetcher,
 	}
 	go c.blockByMaxSize()
 	return &c
@@ -36,10 +34,10 @@ func NewCollection(memMaxUsage int64, topicsOptionsFetcher func(topicName string
 // Write the data to a specific topic in a thread-safe manner
 // This function is blocking at boot time of any new topic and when the Collection has reached memMaxUsage
 // *** -> if you use go functions to call it implement a semaphore to avoid excess go routines <- ***
-func (c *Collection) Write(topicName string, d []byte) (int, error) {
-	t, ok := c.safeRead(topicName)
+func (c *Collection) Write(topic *TopicOptions, d []byte) (int, error) {
+	t, ok := c.safeRead(topic)
 	if !ok {
-		t = c.safeInitTopic(topicName)
+		t = c.safeInitTopic(topic)
 	}
 	written, err := t.write(d)
 	if err != nil {
@@ -64,10 +62,16 @@ func (c *Collection) Shutdown() {
 	wg.Wait()
 }
 
-func (c *Collection) safeRead(topic string) (t *topic, ok bool) {
+func (c *Collection) safeRead(topic *TopicOptions) (t *topic, ok bool) {
 	c.s.RLock()
 	defer c.s.RUnlock()
-	t, ok = c.m[topic]
+	t, ok = c.m[topic.ID]
+	if !ok{
+		return t, ok
+	}
+	if t.topicOptions.LastUpdated.Before(topic.LastUpdated){
+		return t, false
+	}
 	return t, ok
 }
 
@@ -90,16 +94,16 @@ func (c *Collection) blockByMaxSize() {
 	}
 }
 
-func (c *Collection) safeInitTopic(topic string) *topic {
+func (c *Collection) safeInitTopic(topic *TopicOptions) *topic {
 	c.s.Lock()
 	defer c.s.Unlock()
-	v, ok := c.m[topic]
-	if ok {
+	v, ok := c.m[topic.ID]
+	if ok && v.topicOptions.LastUpdated.Equal(topic.LastUpdated){
 		return v
 	}
 	v = newTopic(
 		c.currentDatacount,
-		c.topicsOptionsFetcher(topic))
-	c.m[topic] = v
+		topic)
+	c.m[topic.ID] = v
 	return v
 }
