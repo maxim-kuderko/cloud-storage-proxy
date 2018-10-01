@@ -4,6 +4,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,7 +21,24 @@ func newTopic(globalSizeCounter *int64, topicOptions *TopicOptions) *topic {
 		globalSizeCounter: globalSizeCounter,
 		buffers:make(map[string]*TopicBuffer),
 	}
+	go t.gc()
 	return &t
+}
+
+func (c *topic) gc() {
+	ticker := time.NewTicker(c.topicOptions.Interval * 2)
+	for range ticker.C{
+		func(){
+			c.s.Lock()
+			defer c.s.Unlock()
+			for k, v :=  range c.buffers{
+				if atomic.LoadInt64(v.lastFlush)  <= time.Now().Add(-1 * (c.topicOptions.Interval * 10)).Unix(){
+					v.close()
+					delete(c.buffers, k)
+				}
+			}
+		}()
+	}
 }
 
 func (c *topic) write(partition []string, d []byte) (int, error) {

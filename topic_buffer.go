@@ -2,7 +2,6 @@ package storage_buffer
 
 import (
 	"io"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,7 +16,6 @@ type TopicBuffer struct {
 	s               sync.Mutex
 	ticker          *time.Ticker
 	lastFlush       *int64
-	wg              sync.WaitGroup
 }
 
 func newTopicBuffer(topicOptions *TopicOptions, partition []string) *TopicBuffer {
@@ -50,6 +48,11 @@ func (c *TopicBuffer) write(b []byte) (int, error) {
 	return written, err
 }
 
+func (c *TopicBuffer) close() {
+	c.s.Lock()
+	c.ticker.Stop()
+	c.swapBuffers(false)
+}
 
 func (c *TopicBuffer) shouldFlush() bool {
 	return ((c.topicOptions.MaxSize != -1 && atomic.LoadInt64(&c.currentByteSize) >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && atomic.LoadInt64(&c.currentCount) >= c.topicOptions.MaxLen)) && atomic.LoadInt64(&c.currentCount) > 0
@@ -58,7 +61,7 @@ func (c *TopicBuffer) shouldFlush() bool {
 func (c *TopicBuffer) flush() {
 	for range c.ticker.C {
 		go func(c *TopicBuffer) {
-			if time.Now().Unix()-atomic.LoadInt64(c.lastFlush) <= int64(c.topicOptions.Interval) || atomic.LoadInt64(&c.currentCount) == 0 {
+			if time.Now().Unix()-atomic.LoadInt64(c.lastFlush) <= int64(c.topicOptions.Interval.Seconds()) || atomic.LoadInt64(&c.currentCount) == 0 {
 				return
 			}
 			c.swapBuffers(true)
@@ -68,20 +71,13 @@ func (c *TopicBuffer) flush() {
 }
 
 func (c *TopicBuffer) swapBuffers(getLock bool) {
-	c.wg.Add(1)
 	if getLock {
 		c.s.Lock()
 		defer c.s.Unlock()
 	}
 	if c.store != nil {
 		tmp := c.store
-		go func() {
-			go func() {
-				log.Print("ccc")
-				c.wg.Done()
-			}()
-			tmp.Close()
-		}()
+		go tmp.Close()
 	}
 	c.store = c.topicOptions.StorageDriver(c.partition)
 	atomic.StoreInt64(c.lastFlush, time.Now().Unix())
