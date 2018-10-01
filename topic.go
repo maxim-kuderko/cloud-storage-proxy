@@ -2,96 +2,58 @@ package storage_buffer
 
 import (
 	"io"
+	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
 type topic struct {
 	topicOptions      *TopicOptions
-	buff              io.ReadWriteCloser
-	currentByteSize   int64
-	currentCount      int64
+	buffers           map[string]*TopicBuffer
 	globalSizeCounter *int64
-	lastFlush         *int64
-	s                 sync.Mutex
-	ticker            *time.Ticker
-	wg                sync.WaitGroup
+	s                 sync.RWMutex
 }
 
 func newTopic(globalSizeCounter *int64, topicOptions *TopicOptions) *topic {
-	tm := time.Now().UnixNano()
 	t := topic{
 		topicOptions:      topicOptions,
 		globalSizeCounter: globalSizeCounter,
-		currentCount:      0,
-		currentByteSize:   0,
-		lastFlush:         &tm,
-		ticker:            time.NewTicker(time.Second),
+		buffers:make(map[string]*TopicBuffer),
 	}
-	t.swapBuffers(true)
-	go func() { t.flush() }()
 	return &t
 }
 
-func (c *topic) write(d []byte) (int, error) {
-	c.s.Lock()
-	defer c.s.Unlock()
-	bWritten, err := c.buff.Write(d)
+func (c *topic) write(partition []string, d []byte) (int, error) {
+	bWritten, err := c.loadOrStoreTopicBuffer(partition).write(d)
 	if err != nil {
 		return bWritten, err
-	}
-	w := int64(bWritten)
-	atomic.AddInt64(&c.currentCount, 1)
-	atomic.AddInt64(&c.currentByteSize, w)
-	if c.shouldFlush() {
-		c.swapBuffers(false)
 	}
 	return bWritten, err
 }
 
-func (c *topic) shouldFlush() bool {
-	return ((c.topicOptions.MaxSize != -1 && atomic.LoadInt64(&c.currentByteSize) >= c.topicOptions.MaxSize) || (c.topicOptions.MaxLen != -1 && atomic.LoadInt64(&c.currentCount) >= c.topicOptions.MaxLen)) && atomic.LoadInt64(&c.currentCount) > 0
-}
-
-func (c *topic) flush() {
-	for range c.ticker.C {
-		go func(c *topic) {
-			if time.Now().Unix()-atomic.LoadInt64(c.lastFlush) <= int64(c.topicOptions.Interval) || atomic.LoadInt64(&c.currentCount) == 0 {
-				return
-			}
-			c.swapBuffers(true)
-		}(c)
-	}
-
-}
-
-func (c *topic) swapBuffers(getLock bool) {
-	if getLock {
+func (c *topic) loadOrStoreTopicBuffer(partition []string) *TopicBuffer {
+	key := strings.Join(partition,",")
+		c.s.RLock()
+	v, ok := c.buffers[key]
+	c.s.RUnlock()
+	if !ok {
 		c.s.Lock()
 		defer c.s.Unlock()
+		v, ok := c.buffers[key]
+		if ok {
+			return v
+		}
+		v = c.initTopicBuffer(partition)
+		c.buffers[key] = v
+		return v
 	}
-	if c.buff != nil {
-		c.buff.Close()
-	}
-	c.buff = c.topicOptions.BufferDriver()
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
-		c.topicOptions.Callback(c.topicOptions.StorageDriver(c.buff))
-	}()
-	atomic.StoreInt64(c.lastFlush, time.Now().Unix())
-	atomic.StoreInt64(&c.currentCount, 0)
-	atomic.StoreInt64(&c.currentByteSize, 0)
-	return
+	return v
 }
 
-func (c *topic) shutdown() {
-	c.s.Lock()
-	go c.ticker.Stop()
-	c.buff.Close()
-	c.wg.Wait()
+func (c *topic) initTopicBuffer(partition []string) *TopicBuffer {
+	return newTopicBuffer(c.topicOptions, partition)
 }
+
 
 // TopicOptions contains the data necessary to init a topic
 // Name: name of the topic key
@@ -108,8 +70,6 @@ type TopicOptions struct {
 	MaxLen        int64
 	MaxSize       int64
 	Interval      time.Duration
-	BufferDriver  func() io.ReadWriteCloser
-	StorageDriver func(closer io.ReadWriteCloser) (output map[string]interface{}, err error)
-	Callback      func(output map[string]interface{}, err error)
+	StorageDriver func(partition []string) io.WriteCloser
 	LastUpdated   time.Time
 }

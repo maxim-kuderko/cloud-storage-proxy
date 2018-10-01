@@ -14,18 +14,20 @@ type Collection struct {
 	m                       map[string]*topic
 	storeFunc               func(reader io.ReadWriteCloser, options *TopicOptions) (res map[string]interface{}, err error)
 	bufferDriverInitializer func() io.ReadWriteCloser
-	topicsOptions           map[string]*TopicOptions
 	currentDatacount        *int64
 	memMaxUsage             int64
+	gracePeriod             time.Duration
 	s                       sync.RWMutex
 }
 
 // NewCollection initiates the collection with the default params of limits, and a function the fetches the topic config
-func NewCollection(memMaxUsage int64) *Collection {
+func NewCollection(memMaxUsage int64, gracePeriod time.Duration) *Collection {
 	s := int64(0)
-	c := Collection{m: map[string]*topic{},
-		memMaxUsage:          memMaxUsage,
-		currentDatacount:     &s,
+	c := Collection{
+		m: map[string]*topic{},
+		memMaxUsage:      memMaxUsage,
+		currentDatacount: &s,
+		gracePeriod:      gracePeriod,
 	}
 	go c.blockByMaxSize()
 	return &c
@@ -34,12 +36,12 @@ func NewCollection(memMaxUsage int64) *Collection {
 // Write the data to a specific topic in a thread-safe manner
 // This function is blocking at boot time of any new topic and when the Collection has reached memMaxUsage
 // *** -> if you use go functions to call it implement a semaphore to avoid excess go routines <- ***
-func (c *Collection) Write(topic *TopicOptions, d []byte) (int, error) {
+func (c *Collection) Write(topic *TopicOptions, partition []string, d []byte) (int, error) {
 	t, ok := c.safeRead(topic)
 	if !ok {
 		t = c.safeInitTopic(topic)
 	}
-	written, err := t.write(d)
+	written, err := t.write(partition, d)
 	if err != nil {
 		return 0, err
 	}
@@ -50,26 +52,17 @@ func (c *Collection) Write(topic *TopicOptions, d []byte) (int, error) {
 // Shutdown blocks until collection and it's topic data is empty
 func (c *Collection) Shutdown() {
 	c.s.Lock()
-	defer c.s.Unlock()
-	wg := sync.WaitGroup{}
-	wg.Add(len(c.m))
-	for _, t := range c.m {
-		go func(t *topic, wg *sync.WaitGroup) {
-			defer wg.Done()
-			t.shutdown()
-		}(t, &wg)
-	}
-	wg.Wait()
+	<-time.After(c.gracePeriod)
 }
 
 func (c *Collection) safeRead(topic *TopicOptions) (t *topic, ok bool) {
 	c.s.RLock()
 	defer c.s.RUnlock()
 	t, ok = c.m[topic.ID]
-	if !ok{
+	if !ok {
 		return t, ok
 	}
-	if t.topicOptions.LastUpdated.Before(topic.LastUpdated){
+	if t.topicOptions.LastUpdated.Before(topic.LastUpdated) {
 		return t, false
 	}
 	return t, ok
@@ -98,7 +91,7 @@ func (c *Collection) safeInitTopic(topic *TopicOptions) *topic {
 	c.s.Lock()
 	defer c.s.Unlock()
 	v, ok := c.m[topic.ID]
-	if ok && v.topicOptions.LastUpdated.Equal(topic.LastUpdated){
+	if ok && v.topicOptions.LastUpdated.Equal(topic.LastUpdated) {
 		return v
 	}
 	v = newTopic(
